@@ -1,47 +1,76 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+import { onMounted } from "vue";
+import { useMainStore } from "@/stores/main";
+import GlobalDialog from "@/components/shared/GlobalDialog.vue";
+import MainView from "@/views/Main.vue";
+import DevSideBar from '@/views/dev/components/DevSideBar.vue';
+
+const mainStore = useMainStore();
+
+onMounted(() => {
+    console.log('onMounted')
+    mainStore.init();
+})
+
+function addShortcut() {
+    if (top['addShortcut']) top['addShortcut']();
+    else console.error('addShortcut function not found.')
+}
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
+    <v-app>
+        <v-main>
+            <v-container>
+                <v-row class="mx-1" justify="space-between" align="center">
+                    <v-col cols="auto">
+                        <h2 class="text-primary" v-html="mainStore.pageTitle" style="font-size: 1.3em;"></h2>
+                    </v-col>
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-    </div>
-  </header>
+                    <v-col cols="auto">
+                        <a v-if="true" @click="addShortcut" :style="{cursor: 'pointer'}"
+                           class="subtitle-1 text-primary">Add To Shortcuts <v-icon size="20" color="primary">mdi-open-in-new</v-icon></a>
+                    </v-col>
+                </v-row>
+            </v-container>
 
-  <main>
-    <TheWelcome />
-  </main>
+            <v-divider class="mb-3"></v-divider>
+
+            <MainView />
+
+            <DevSideBar />
+        </v-main>
+    </v-app>
+
+    <GlobalDialog />
 </template>
 
-<style scoped>
-header {
-  line-height: 1.5;
+<style>
+.v-list-item {
+    min-height: 40px !important;
+}
+.v-list-item-title {
+    font-size: .85rem !important;
+    font-weight: 500;
+}
+.cell-text-size-11px {
+    font-size: 11px !important;
+}
+.v-data-table__th {
+    font-size: 0.775rem !important;
+}
+.v-text-field__prefix {
+    font-weight: 600;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
+.cell-text-size {
+    font-size: 11px !important;
 }
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+.v-input.v-text-field-no-pl input {
+    padding-left: 0 !important;
+}
+.v-input.v-text-field-primary-color-input input {
+    color: #095c7b;
+    font-weight: bold;
 }
 </style>
