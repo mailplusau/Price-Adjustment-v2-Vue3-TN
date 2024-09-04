@@ -285,3 +285,12 @@ export const userNote = {
     note: '',
     title: '',
 }
+
+export const priceAdjustmentRecord = {
+    custrecord_1301_month: null,
+    custrecord_1301_year: null,
+    custrecord_1301_opening_date: null,
+    custrecord_1301_effective_date: null,
+    custrecord_1301_deadline: null,
+    custrecord_1301_pricing_rules: [],
+}

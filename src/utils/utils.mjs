@@ -9,8 +9,10 @@ const dateFormat = new Intl.DateTimeFormat('en-AU', {
 });
 
 export const VARS = {
-    pageTitle: 'Yearly Price Increase v2',
+    pageTitle: 'Price Increase v2',
 }
+
+export const isoStringRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z?$/;
 
 export const rules = {
     email(value, fieldName = 'This field') {
@@ -148,4 +150,12 @@ export function formatBytes(bytes, decimals = 2) {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+}
+
+export const simpleCompare = (a, b) => `${a}`.localeCompare(`${b}`);
+
+export const checkSubset = (parentArray, subsetArray) => {
+    return subsetArray.every((el) => {
+        return parentArray.includes(el)
+    })
 }

@@ -7,13 +7,13 @@
  */
 
 import {VARS} from '@/utils/utils.mjs';
-import {serviceChange as serviceChangeFields, commReg as commRegFields, serviceFieldIds} from '@/utils/defaults.mjs';
+import { customer as customerFields, franchisee as franchiseeFields, serviceChange as serviceChangeFields, commReg as commRegFields, priceAdjustmentRecord as priceAdjustmentRecordFields, serviceFieldIds } from "@/utils/defaults.mjs";
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
 let htmlTemplateFilename/**/;
 let clientScriptFilename/**/;
 
-// const isoStringRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z?$/;
+const isoStringRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z?$/;
 const defaultTitle = VARS.pageTitle;
 
 let NS_MODULES = {};
@@ -158,11 +158,249 @@ function _writeResponseJson(response, body) {
 
 
 const getOperations = {
+    'getCurrentUserDetails' : function (response) {
+        let user = {role: NS_MODULES.runtime['getCurrentUser']().role, id: NS_MODULES.runtime['getCurrentUser']().id};
+        let salesRep = {};
 
+        if (parseInt(user.role) === 1000) {
+            let franchiseeRecord = NS_MODULES.record.load({type: 'partner', id: user.id});
+            let employeeId = franchiseeRecord.getValue({fieldId: 'custentity_sales_rep_assigned'});
+            let employeeRecord = NS_MODULES.record.load({type: 'employee', id: employeeId});
+            salesRep['id'] = employeeId;
+            salesRep['name'] = `${employeeRecord.getValue({fieldId: 'firstname'})} ${employeeRecord.getValue({fieldId: 'lastname'})}`;
+        }
+
+        _writeResponseJson(response, {...user, salesRep});
+    },
+    'getFranchiseeDetails' : function (response, {franchiseeId}) {
+        let partner = {};
+
+        let partnerRecord = NS_MODULES.record.load({type: 'partner', id: franchiseeId})
+        for (let fieldId of Object.keys(franchiseeFields)) {
+            partner[fieldId] = partnerRecord['getValue']({fieldId});
+            partner[fieldId + '_text'] = partnerRecord['getText']({fieldId});
+        }
+
+        _writeResponseJson(response, partner);
+    },
+    'getAllFranchisees' : function (response) {
+        _writeResponseJson(response, _.getFranchiseesByFilters([
+            ['isInactive'.toLowerCase(), 'is', false]
+        ]));
+    },
+    'getCustomers' : function (response) {
+        let franchiseesToExclude = [
+            212, // Acacia Ridge
+            214, // Airport West
+            1640044, // Altona
+            1796642, // Arncliffe
+            64113, // Banyo
+            1816660, // Barton
+            143, // Baulkham Hills
+            1818659, // Bayswater
+            1787308, // Belmont
+            1836662, // Blacktown
+            219, // Bondi Junction
+            453361, // Booval
+            280, // Botany Botany
+            236, // Geelong
+            554481, // Lane Cove
+            261, // Lane Lane
+            249, // Launceston
+            1789878, // Liverpool
+            512991, // Mackay
+            251, // Macquarie Park
+            253, // Mascot
+            228330, // Melbourne CBD
+            194183, // Mulgrave
+            192117, // Newcastle
+        ]
+        _writeResponseJson(response, _.getCustomersByFilters([
+            ['entitystatus', 'is', 13],
+            'AND',
+            ['partner', 'noneof', franchiseesToExclude],
+            'AND',
+            ['partner', 'isNotEmpty'.toLowerCase(), ''],
+            'AND',
+            ['partner.entityid', 'doesNotContain'.toLowerCase(), 'TEST']
+        ], ['entityid', 'companyname', 'partner'], true));
+    },
+    'getInvoicesByCustomerId' : function (response, {customerId}) {
+        _writeResponseJson(response, _.getInvoicesByFilters([
+            ["type", "anyof", "CustInvc"],
+            'AND', ["mainline", "is", "T"],
+            'AND', ['entity', 'is', customerId],
+        ]))
+    },
+    'getEligibleInvoicesByFranchiseeId' : function (response, {franchiseeId}) {
+        _writeResponseJson(response, _.getInvoicesByFilters([
+            ['type', 'is', 'CustInvc'],
+            'AND', ['customer.partner', 'is', franchiseeId],
+            'AND', ['customer.status', 'is', 13], // Signed (13)
+            'AND', ['mainline', 'is', true],
+            'AND', ['memorized', 'is', false],
+            'AND', [['trandate', 'within', 'oneyearbeforelast'],'OR',['trandate','within','monthsago6','daysago0']],
+            "AND", [["customer.custentity_date_of_last_price_increase", "isempty", ""],"OR",["customer.custentity_date_of_last_price_increase", "onorbefore", "lastyeartodate"]]
+        ], ['trandate', 'customer.internalid', 'customer.entityid', 'customer.companyname'], true))
+    },
+    'getActiveServicesByCustomerId' : function (response, {customerId}) {
+        _writeResponseJson(response, _.getServicesByFilters([
+            ['isinactive', 'is', false],
+            'AND',
+            ['custrecord_service_category', 'is', 1], // We take records under the Category: Services (1) only
+            'AND',
+            ['custrecord_service_customer', 'is', customerId]
+        ]))
+    },
+    'getFinancialItemsByCustomerId' : function (response, {customerId}) {
+        const financialItems = [];
+        const sublistId = 'itemPricing'.toLowerCase();
+        const customerRecord = NS_MODULES.record.load({type: 'customer', id: customerId, isDynamic: true});
+        const lineCount = customerRecord['getLineCount']({sublistId});
+        const fieldsToGet = ['item', 'level', 'price'];
+
+        for (let line = 0; line < lineCount; line++) {
+            let entry = {};
+
+            for (let fieldId of fieldsToGet) {
+                entry[fieldId] = customerRecord["getSublistValue"]({ sublistId, fieldId, line });
+                entry[fieldId + '_text'] = customerRecord["getSublistText"]({ sublistId, fieldId, line });
+            }
+
+            financialItems.push(entry);
+        }
+
+        _writeResponseJson(response, financialItems);
+    },
+    'getItemsOfInvoiceById' : function (response, {invoiceId}) {
+        const items = [];
+        const linesToExclude = [
+            'Signature Item Collected',
+            'Parcel Collection',
+            'Weight Charges',
+            'Account Admin Fee',
+            'Fuel Surcharge',
+            'Credit Card Surcharge',
+            'MP Products',
+            'COGS (Non GST)',
+            'Waiting Time'
+        ]
+        const invoiceRecord = NS_MODULES.record.load({type: 'invoice', id: invoiceId, isDynamic: true});
+        const lineCount = invoiceRecord['getLineCount']({sublistId: 'item'});
+        const fieldsToGet = ['item', 'rate', 'amount', 'quantity'];
+
+        for (let line = 0; line < lineCount; line++) {
+            let entry = {};
+
+            for (let fieldId of fieldsToGet) {
+                entry[fieldId] = invoiceRecord["getSublistValue"]({ sublistId: "item", fieldId, line });
+                entry[fieldId + '_text'] = invoiceRecord["getSublistText"]({ sublistId: "item", fieldId, line });
+            }
+
+            if (!linesToExclude.includes(entry['item_text'])) items.push(entry);
+        }
+
+        _writeResponseJson(response, items);
+    },
+    'getActiveServicesByFranchiseeId' : function (response, {franchiseeId}) {
+        _writeResponseJson(response, _.getServicesByFilters([
+            ['custrecord_service_franchisee', 'anyof', franchiseeId],
+            'AND',
+            ['custrecord_service_customer.status' ,'anyof', '13'],
+            'AND',
+            ['isinactive', 'is', 'F'],
+            'AND',
+            ['custrecord_service_category', 'anyof', '1'],
+            'AND',
+            [
+                ["custrecord_service_customer.custentity_date_of_last_price_increase","isempty",""],
+                "OR",
+                ["custrecord_service_customer.custentity_date_of_last_price_increase","onorbefore","lastyeartodate"]
+            ],
+        ], [
+            'custrecord_service_franchisee',
+            'custrecord_service',
+            'custrecord_service_category',
+            'custrecord_service_price',
+            'CUSTRECORD_SERVICE_CUSTOMER.companyname',
+            'CUSTRECORD_SERVICE_CUSTOMER.entityid',
+            'CUSTRECORD_SERVICE_CUSTOMER.internalid',
+            'CUSTRECORD_SERVICE_CUSTOMER.custentity_date_of_last_price_increase'
+        ], true));
+    },
+    'getPriceAdjustmentRecordById' : function(response, {priceIncreaseRecordId}) {
+        let priceIncreaseRecord = NS_MODULES.record.load({type: 'customrecord_price_adjustment', id: priceIncreaseRecordId});
+        let data = {};
+
+        data['id'] = priceIncreaseRecord['getValue']({fieldId: 'id'});
+        for (let fieldId in priceAdjustmentRecordFields) {
+            data[fieldId] = priceIncreaseRecord['getValue']({fieldId});
+            data[fieldId + '_text'] = priceIncreaseRecord['getText']({fieldId});
+        }
+
+        _writeResponseJson(response, data);
+
+    },
+    'getAllPriceAdjustmentRecords' : function(response) {
+        _writeResponseJson(response, _.getPriceIncreaseRulesByFilters([]));
+    },
+    'getSelectOptions' : function (response, {id, type, valueColumnName, textColumnName}) {
+        let {search} = NS_MODULES;
+        let data = [];
+
+        search.create({
+            id, type,
+            filters: ['isinactive', 'is', false],
+            columns: [{name: valueColumnName}, {name: textColumnName}]
+        }).run().each(result => {
+            data.push({value: result['getValue'](valueColumnName), title: result['getValue'](textColumnName)});
+            return true;
+        });
+
+        _writeResponseJson(response, data);
+    },
+    'getServiceTypes' : function (response) {
+        let {search} = NS_MODULES;
+        let data = [];
+
+        let searchResult = search.create({
+            type: 'customrecord_service_type',
+            filters: [
+                {name: 'custrecord_service_type_category', operator: 'anyof', values: [1]},
+            ],
+            columns: [
+                {name: 'internalid'},
+                {name: 'custrecord_service_type_ns_item_array'},
+                {name: 'name'}
+            ]
+        }).run();
+
+        searchResult.each(item => {
+            data.push({value: item['getValue']('internalid'), title: item['getValue']('name')})
+
+            return true;
+        });
+
+        _writeResponseJson(response, data);
+    },
 }
 
 const postOperations = {
+    'saveOrCreatePriceAdjustmentRule' : function(response, {priceIncreaseRecordId, priceIncreaseRuleData}) {
+        let priceIncreaseRecord = priceIncreaseRecordId ?
+            NS_MODULES.record.load({type: 'customrecord_price_adjustment', id: priceIncreaseRecordId}) :
+            NS_MODULES.record.create({type: 'customrecord_price_adjustment'});
 
+        for (let fieldId in priceIncreaseRuleData) {
+            let value = priceIncreaseRuleData[fieldId];
+            if (isoStringRegex.test(priceIncreaseRuleData[fieldId]) && ['date', 'datetimetz'].includes(priceIncreaseRecord['getField']({fieldId})?.type))
+                value = new Date(priceIncreaseRuleData[fieldId]);
+
+            priceIncreaseRecord.setValue({fieldId, value});
+        }
+
+        _writeResponseJson(response, {priceIncreaseRecordId: priceIncreaseRecord.save({ignoreMandatoryFields: true})});
+    }
 };
 
 const _ = {
@@ -182,49 +420,59 @@ const _ = {
 
         return data;
     },
-    getServicesByFilters(filters, additionalColumns = []) {
-        let data = [];
+    getCustomersByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customer', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(customerFields.basic), ...additionalColumns]);
+    },
+    getFranchiseesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('partner', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(franchiseeFields), ...additionalColumns]);
+    },
+    getServicesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customrecord_service', filters,
+            overwriteColumns ? [...additionalColumns] : [...serviceFieldIds, ...additionalColumns]);
+    },
+    getServiceChangesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customrecord_servicechg', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(serviceChangeFields), ...additionalColumns]);
+    },
+    getCommRegsByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customrecord_commencement_register', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(commRegFields), ...additionalColumns]);
+    },
+    getEmployeesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('employee', filters,
+            overwriteColumns ? [...additionalColumns] : [...['email', 'entityid'], ...additionalColumns]);
+    },
+    getInvoicesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        let columns = ['statusref', 'trandate', 'invoicenum', 'amountremaining', 'total', 'duedate', 'custbody_inv_type', 'tranid'];
 
-        NS_MODULES.search.create({
-            type: "customrecord_service",
-            filters,
-            columns: [...serviceFieldIds, ...additionalColumns]
-        }).run().each(result => _.processSavedSearchResults(data, result));
+        return this.runNetSuiteSearch('invoice', filters,
+            overwriteColumns ? [...additionalColumns] : [...columns, ...additionalColumns]);
+    },
+    getPriceIncreaseRulesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customrecord_price_adjustment', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(priceAdjustmentRecordFields), ...additionalColumns]);
+    },
+
+    runNetSuiteSearch(type, filters, columns) {
+        let data = [];
+        let cycle = 0;
+
+        let resultSubset = [];
+        let searchResults = NS_MODULES.search.create({ type, filters, columns }).run();
+
+        do {
+            resultSubset = searchResults['getRange']({start: cycle * 1000, end: cycle * 1000 + 1000});
+
+            for (let result of resultSubset) // we can also use getAllValues() on one of these to see all available fields
+                this.processSavedSearchResults(data, result);
+
+            cycle++;
+        } while (resultSubset.length >= 1000)
 
         return data;
     },
-    getServiceChangesByFilters(filters, additionalColumns = []) {
-        let data = [];
-
-        NS_MODULES.search.create({
-            type: "customrecord_servicechg",
-            filters,
-            columns: [...Object.keys(serviceChangeFields), ...additionalColumns]
-        }).run().each(result => _.processSavedSearchResults(data, result));
-
-        return data;
-    },
-    getCommRegsByFilters(filters, additionalColumns = []) {
-        let data = [];
-
-        NS_MODULES.search.create({
-            type: "customrecord_commencement_register",
-            filters,
-            columns: [...Object.keys(commRegFields), ...additionalColumns]
-        }).run().each(result => _.processSavedSearchResults(data, result));
-
-        return data;
-    },
-    getEmployeesByFilters(filters, additionalColumns = []) {
-        let data = [];
-
-        NS_MODULES.search.create({
-            type: "employee",
-            filters,
-            columns: ['internalid', 'email', 'entityid', ...additionalColumns]
-        }).run().each(result => this.processSavedSearchResults(data, result));
-    },
-
     processSavedSearchResults(data, result) {
         let tmp = {};
         tmp['internalid'] = result.id;
