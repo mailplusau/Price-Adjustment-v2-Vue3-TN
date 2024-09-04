@@ -6,15 +6,15 @@ let elapsedTime = 0;
 
 const state = {
     maxWith: 500,
-    open: false,
-    title: 'Default title',
-    body: 'This is a global modal that will deliver notification on global level.',
-    busy: false,
+    open: true,
+    title: '',
+    body: 'Loading. Please wait...',
+    busy: true,
     progress: -1,
     persistent: true,
     isError: false,
     buttons: [],
-    hideButtons: false,
+    hideButtons: true,
     showProgressPercent: false,
 };
 
@@ -95,10 +95,12 @@ const actions = {
         this.hideButtons = true;
 
         if (progress < 0) {
-            fakeProgressInterval = setInterval(() => {
-                elapsedTime += timeStep;
-                this.progress = Math.atan(elapsedTime / 3e3) / (Math.PI / 2) * 100;
-            }, interval);
+            if (fakeProgressInterval) elapsedTime = 0;
+            else
+                fakeProgressInterval = setInterval(() => {
+                    elapsedTime += timeStep;
+                    this.progress = Math.atan(elapsedTime / 3e3) / (Math.PI / 2) * 100;
+                }, interval);
         }
     },
     stopFakeProgress() {

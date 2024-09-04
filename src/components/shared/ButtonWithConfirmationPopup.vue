@@ -22,12 +22,15 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    menuLocation: {
+        default: 'bottom center'
+    }
 })
 
 </script>
 
 <template>
-    <v-menu location="end" :close-on-content-click="props.closeOnContentClick">
+    <v-menu :location="menuLocation" :close-on-content-click="props.closeOnContentClick">
         <template v-slot:activator="{ props: menuActivator }">
             <v-tooltip :text="props.tooltip" location="top">
                 <template v-slot:activator="{ props: tooltipActivator }">

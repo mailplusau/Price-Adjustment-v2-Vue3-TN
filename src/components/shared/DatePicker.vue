@@ -16,6 +16,14 @@ const props = defineProps({
     disabled: {
         type: Boolean,
         default: false,
+    },
+    min: {
+        type: String,
+        default: '',
+    },
+    clearable: {
+        type: Boolean,
+        default: false,
     }
 })
 const dialogOpen = ref(false);
@@ -48,11 +56,12 @@ const displayDate = computed(() => model.value ? dateFormat.format(model.value) 
 <template>
     <v-dialog width="unset" v-model="dialogOpen">
         <template v-slot:activator="{ props: activatorProps }">
-            <slot name="activator" :activatorProps="props.disabled ? null : activatorProps" :displayDate="displayDate" :readonly="props.readonly" :clearInput="clearInput"></slot>
+            <slot name="activator" :activatorProps="props.disabled ? null : activatorProps" :clearable="props.clearable"
+                  :displayDate="displayDate" :readonly="props.readonly" :disabled="props.disabled" :clearInput="clearInput"></slot>
         </template>
 
-        <template v-slot:default="{ isActive }">
-            <v-date-picker v-model="selectedDate" class="bg-background" color="primary" :title="title">
+        <template v-slot:default="{  }">
+            <v-date-picker v-model="selectedDate" class="bg-background" color="primary" :title="title" :min="props.min">
                 <template v-slot:actions>
                     <v-btn @click="dialogOpen = false">cancel</v-btn>
                     <v-btn variant="elevated" color="green" @click="update">apply change</v-btn>
