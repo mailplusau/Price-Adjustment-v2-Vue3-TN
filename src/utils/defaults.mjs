@@ -286,11 +286,22 @@ export const userNote = {
     title: '',
 }
 
-export const priceAdjustmentRecord = {
+export const pricingRule = {
     custrecord_1301_month: null,
     custrecord_1301_year: null,
     custrecord_1301_opening_date: null,
     custrecord_1301_effective_date: null,
     custrecord_1301_deadline: null,
-    custrecord_1301_pricing_rules: [],
+    custrecord_1301_pricing_rules: JSON.stringify([]),
+}
+
+export const priceAdjustment = {
+    custrecord_1302_master_record: null,
+    custrecord_1302_franchisee: null,
+    custrecord_1302_pricing_rules: JSON.stringify([]),
+    custrecord_1302_data_00: '',
+    custrecord_1302_data_01: '',
+    custrecord_1302_data_02: '',
+    custrecord_1302_data_03: '',
+    custrecord_1302_data_04: '',
 }

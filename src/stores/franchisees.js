@@ -4,8 +4,8 @@ import {franchisee as franchiseeFields} from '@/utils/defaults.mjs'
 import { useUserStore } from "@/stores/user";
 import { useCustomerStore } from "@/stores/customers";
 import { useServiceStore } from "@/stores/services";
-import { usePriceIncreaseStore } from "@/stores/price-increase";
 import { franchisees } from "@/utils/testData";
+import { usePriceAdjustment } from "@/stores/price-adjustment";
 
 const state = {
     all: [],
@@ -15,6 +15,7 @@ const state = {
         id: null,
         details: {...franchiseeFields},
         texts: {...franchiseeFields},
+        priceAdjustmentData: [],
     }
 };
 
@@ -39,7 +40,7 @@ const actions = {
         await _fetchCurrentFranchisee(this);
         await useCustomerStore().init();
         await useServiceStore().init();
-        await usePriceIncreaseStore().initRecords();
+        await usePriceAdjustment().init();
         this.busy = false;
     }
 };

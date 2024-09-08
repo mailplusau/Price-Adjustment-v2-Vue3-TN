@@ -7,7 +7,7 @@
  */
 
 import {VARS} from '@/utils/utils.mjs';
-import { customer as customerFields, franchisee as franchiseeFields, serviceChange as serviceChangeFields, commReg as commRegFields, priceAdjustmentRecord as priceAdjustmentRecordFields, serviceFieldIds } from "@/utils/defaults.mjs";
+import { customer as customerFields, franchisee as franchiseeFields, serviceChange as serviceChangeFields, commReg as commRegFields, pricingRule as pricingRuleFields, priceAdjustment as priceAdjustmentFields,  serviceFieldIds } from "@/utils/defaults.mjs";
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
 let htmlTemplateFilename/**/;
@@ -328,21 +328,28 @@ const getOperations = {
             'CUSTRECORD_SERVICE_CUSTOMER.custentity_date_of_last_price_increase'
         ], true));
     },
-    'getPriceAdjustmentRecordById' : function(response, {priceIncreaseRecordId}) {
-        let priceIncreaseRecord = NS_MODULES.record.load({type: 'customrecord_price_adjustment', id: priceIncreaseRecordId});
+    'getPriceAdjustmentRuleById' : function(response, {priceAdjustmentRuleId}) {
+        let priceAdjustmentRule = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: priceAdjustmentRuleId});
         let data = {};
 
-        data['id'] = priceIncreaseRecord['getValue']({fieldId: 'id'});
-        for (let fieldId in priceAdjustmentRecordFields) {
-            data[fieldId] = priceIncreaseRecord['getValue']({fieldId});
-            data[fieldId + '_text'] = priceIncreaseRecord['getText']({fieldId});
+        data['id'] = priceAdjustmentRule['getValue']({fieldId: 'id'});
+        for (let fieldId in pricingRuleFields) {
+            data[fieldId] = priceAdjustmentRule['getValue']({fieldId});
+            data[fieldId + '_text'] = priceAdjustmentRule['getText']({fieldId});
         }
 
         _writeResponseJson(response, data);
 
     },
-    'getAllPriceAdjustmentRecords' : function(response) {
-        _writeResponseJson(response, _.getPriceIncreaseRulesByFilters([]));
+    'getAllPriceAdjustmentRules' : function(response) {
+        _writeResponseJson(response, _.getPriceAdjustmentRulesByFilters([]));
+    },
+    'getPriceAdjustmentOfFranchisee' : function (response, {priceAdjustmentRuleId, franchiseeId}) {
+        _writeResponseJson(response, _.getPriceAdjustmentOfFranchiseeByFilter([
+            ['custrecord_1302_master_record', 'is', priceAdjustmentRuleId],
+            'AND',
+            ['custrecord_1302_franchisee', 'is', franchiseeId]
+        ]))
     },
     'getSelectOptions' : function (response, {id, type, valueColumnName, textColumnName}) {
         let {search} = NS_MODULES;
@@ -386,20 +393,35 @@ const getOperations = {
 }
 
 const postOperations = {
-    'saveOrCreatePriceAdjustmentRule' : function(response, {priceIncreaseRecordId, priceIncreaseRuleData}) {
-        let priceIncreaseRecord = priceIncreaseRecordId ?
-            NS_MODULES.record.load({type: 'customrecord_price_adjustment', id: priceIncreaseRecordId}) :
-            NS_MODULES.record.create({type: 'customrecord_price_adjustment'});
+    'saveOrCreatePriceAdjustmentRule' : function(response, {priceAdjustmentRuleId, priceIncreaseRuleData}) {
+        let priceAdjustmentRule = priceAdjustmentRuleId ?
+            NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: priceAdjustmentRuleId}) :
+            NS_MODULES.record.create({type: 'customrecord_price_adjustment_rules'});
 
         for (let fieldId in priceIncreaseRuleData) {
             let value = priceIncreaseRuleData[fieldId];
-            if (isoStringRegex.test(priceIncreaseRuleData[fieldId]) && ['date', 'datetimetz'].includes(priceIncreaseRecord['getField']({fieldId})?.type))
+            if (isoStringRegex.test(priceIncreaseRuleData[fieldId]) && ['date', 'datetimetz'].includes(priceAdjustmentRule['getField']({fieldId})?.type))
                 value = new Date(priceIncreaseRuleData[fieldId]);
 
-            priceIncreaseRecord.setValue({fieldId, value});
+            priceAdjustmentRule.setValue({fieldId, value});
         }
 
-        _writeResponseJson(response, {priceIncreaseRecordId: priceIncreaseRecord.save({ignoreMandatoryFields: true})});
+        _writeResponseJson(response, {priceAdjustmentRuleId: priceAdjustmentRule.save({ignoreMandatoryFields: true})});
+    },
+    'saveOrCreatePriceAdjustmentRecord' : function(response, {priceAdjustmentRecordId, priceAdjustmentData}) {
+        let priceAdjustmentRecord = priceAdjustmentRecordId ?
+            NS_MODULES.record.load({type: 'customrecord_price_adjustment_franchisee', id: priceAdjustmentRecordId}) :
+            NS_MODULES.record.create({type: 'customrecord_price_adjustment_franchisee'});
+
+        for (let fieldId in priceAdjustmentData) {
+            let value = priceAdjustmentData[fieldId];
+            if (isoStringRegex.test(priceAdjustmentData[fieldId]) && ['date', 'datetimetz'].includes(priceAdjustmentRecord['getField']({fieldId})?.type))
+                value = new Date(priceAdjustmentData[fieldId]);
+
+            priceAdjustmentRecord.setValue({fieldId, value});
+        }
+
+        _writeResponseJson(response, {priceAdjustmentRecordId: priceAdjustmentRecord.save({ignoreMandatoryFields: true})});
     }
 };
 
@@ -450,9 +472,13 @@ const _ = {
         return this.runNetSuiteSearch('invoice', filters,
             overwriteColumns ? [...additionalColumns] : [...columns, ...additionalColumns]);
     },
-    getPriceIncreaseRulesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customrecord_price_adjustment', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(priceAdjustmentRecordFields), ...additionalColumns]);
+    getPriceAdjustmentRulesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customrecord_price_adjustment_rules', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(pricingRuleFields), ...additionalColumns]);
+    },
+    getPriceAdjustmentOfFranchiseeByFilter(filters, additionalColumns = [], overwriteColumns = false) {
+        return this.runNetSuiteSearch('customrecord_price_adjustment_franchisee', filters,
+            overwriteColumns ? [...additionalColumns] : [...Object.keys(priceAdjustmentFields), ...additionalColumns]);
     },
 
     runNetSuiteSearch(type, filters, columns) {

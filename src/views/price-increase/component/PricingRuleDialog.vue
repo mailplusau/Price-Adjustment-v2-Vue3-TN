@@ -6,57 +6,70 @@ import DatePicker from "@/components/shared/DatePicker.vue";
 import InlineTextField from "@/components/shared/InlineTextField.vue";
 import InlineSelect from "@/components/shared/InlineSelect.vue";
 import AddPricingRuleMenu from "@/views/price-increase/component/AddPricingRuleMenu.vue";
-import { usePriceIncreaseStore } from "@/stores/price-increase";
+import { usePricingRules } from "@/stores/pricing-rules";
 import { useDataStore } from "@/stores/data";
 import { useGlobalDialog } from "@/stores/global-dialog";
 import { useUserStore } from "@/stores/user";
 import { useFranchiseeStore } from "@/stores/franchisees";
+import { usePriceAdjustment } from "@/stores/price-adjustment";
 
 const globalDialog = useGlobalDialog();
-const piProcessor = usePriceIncreaseStore();
 const franchiseeStore = useFranchiseeStore();
 const dataStore = useDataStore();
 const userStore = useUserStore();
 
+const priceAdjustmentRule = usePricingRules();
+const priceAdjustmentRecord = usePriceAdjustment();
+
 const { validate } = rules;
 const mainForm = ref(null);
 const formValid = ref(true);
-const pricingRules = computed(() => piProcessor.currentSession.form.custrecord_1301_pricing_rules);
+const servicePricingRules = computed(() => priceAdjustmentRecord.id
+    ? priceAdjustmentRecord.form.custrecord_1302_pricing_rules
+    : priceAdjustmentRule.currentSession.form.custrecord_1301_pricing_rules);
 const dialogOpen = computed({
-    get: () => piProcessor.pricingRuleDialog.open,
-    set: val => { piProcessor.pricingRuleDialog.open = val; }
+    get: () => priceAdjustmentRule.pricingRuleDialog.open,
+    set: val => { priceAdjustmentRule.pricingRuleDialog.open = val; }
 });
 
 const serviceTypes = computed(() => {
     const usedTypes = [];
-    for (let rule of pricingRules.value) usedTypes.push(...rule.services);
+    for (let rule of servicePricingRules.value) usedTypes.push(...rule.services);
 
     return dataStore.serviceTypes.filter(item => !checkSubset(usedTypes, item.value));
 })
 
-const minDeadline = computed(() => !piProcessor.currentSession.form.custrecord_1301_opening_date
-    ? '' : set(piProcessor.currentSession.form.custrecord_1301_opening_date, {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
+const minDeadline = computed(() => !priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date
+    ? '' : set(priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date, {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
 
-const minEffectiveDate = computed(() => !piProcessor.currentSession.form.custrecord_1301_deadline
-    ? '' : set(piProcessor.currentSession.form.custrecord_1301_deadline, {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
+const minEffectiveDate = computed(() => !priceAdjustmentRule.currentSession.form.custrecord_1301_deadline
+    ? '' : set(priceAdjustmentRule.currentSession.form.custrecord_1301_deadline, {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
 
 function getServiceTypeText(serviceTypeIds) {
     let index = dataStore.serviceTypes.findIndex(item => checkSubset(serviceTypeIds, item.value) && serviceTypeIds.length === item.value.length);
     return index < 0 ? 'Unknown' : dataStore.serviceTypes[index].title;
 }
 
-async function proceed() {
+async function proceed(applyRules = false) {
     let res = await mainForm.value['validate']();
     if (!res.valid) return console.log('Fix the errors');
-    dialogOpen.value = false;
+
     globalDialog.displayProgress('', 'Saving Price Increase Record...');
-    if (piProcessor.currentSession.id) await piProcessor.savePricingRules();
-    else await piProcessor.createNewRuleRecord();
+
+    if (priceAdjustmentRecord.id) {
+        await priceAdjustmentRecord.savePriceAdjustmentRecord(applyRules);
+        await priceAdjustmentRecord.fetchPriceAdjustmentRecord();
+    }
+    else if (priceAdjustmentRule.currentSession.id) await priceAdjustmentRule.savePricingRules();
+    else await priceAdjustmentRule.createNewRuleRecord();
+
     await globalDialog.close(500, 'Complete!');
+    dialogOpen.value = false;
 }
 
-watch(dialogOpen, val => {
-    if (val) piProcessor.resetForm();
+watch(dialogOpen, () => {
+    if (priceAdjustmentRecord.id) priceAdjustmentRecord.resetForm();
+    else priceAdjustmentRule.resetForm();
 })
 </script>
 
@@ -64,9 +77,9 @@ watch(dialogOpen, val => {
     <v-dialog width="659" v-model="dialogOpen">
         <template v-slot:activator="{ props: activatorProps }">
             <v-btn variant="outlined" color="secondary" size="small" class="ml-4"
-                   v-if="userStore.isAdmin || (userStore.isFranchisee && piProcessor.currentSession.id)"
+                   v-if="userStore.isAdmin || (userStore.isFranchisee && priceAdjustmentRule.currentSession.id)"
                    v-bind="activatorProps">
-                {{ piProcessor.currentSession.id ? 'Change Pricing Rules' : 'Create Price Increase Rule'}}
+                {{ priceAdjustmentRule.currentSession.id ? 'Change Pricing Rules' : 'Create Price Increase Rule'}}
             </v-btn>
         </template>
         <v-card color="background">
@@ -76,8 +89,8 @@ watch(dialogOpen, val => {
 
                     <template v-if="userStore.isAdmin">
                         <v-col cols="4">
-                            <DatePicker v-model="piProcessor.currentSession.form.custrecord_1301_opening_date" title="Opening Date"
-                                        @update:model-value="piProcessor.handleDatesChanged">
+                            <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date" title="Opening Date"
+                                        @update:model-value="priceAdjustmentRule.handleDatesChanged">
                                 <template v-slot:activator="{ activatorProps, displayDate }">
                                     <v-text-field v-bind="activatorProps" :model-value="displayDate" persistent-placeholder
                                                   :rules="[v => validate(v, 'required')]"
@@ -86,9 +99,9 @@ watch(dialogOpen, val => {
                             </DatePicker>
                         </v-col>
                         <v-col cols="4">
-                            <DatePicker v-model="piProcessor.currentSession.form.custrecord_1301_deadline" title="Deadline" :min="minDeadline"
-                                        :disabled="!piProcessor.currentSession.form.custrecord_1301_opening_date"
-                                        @update:model-value="piProcessor.handleDatesChanged">
+                            <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_deadline" title="Deadline" :min="minDeadline"
+                                        :disabled="!priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date"
+                                        @update:model-value="priceAdjustmentRule.handleDatesChanged">
                                 <template v-slot:activator="{ activatorProps, displayDate, disabled }">
                                     <v-text-field v-bind="activatorProps" :model-value="displayDate" persistent-placeholder
                                                   :rules="[v => validate(v, 'required')]" :disabled="disabled"
@@ -97,9 +110,9 @@ watch(dialogOpen, val => {
                             </DatePicker>
                         </v-col>
                         <v-col cols="4">
-                            <DatePicker v-model="piProcessor.currentSession.form.custrecord_1301_effective_date" title="Effective Date" :min="minEffectiveDate"
-                                        :disabled="!piProcessor.currentSession.form.custrecord_1301_deadline"
-                                        @update:model-value="piProcessor.handleDatesChanged">
+                            <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_effective_date" title="Effective Date" :min="minEffectiveDate"
+                                        :disabled="!priceAdjustmentRule.currentSession.form.custrecord_1301_deadline"
+                                        @update:model-value="priceAdjustmentRule.handleDatesChanged">
                                 <template v-slot:activator="{ activatorProps, displayDate, disabled }">
                                     <v-text-field v-bind="activatorProps" :model-value="displayDate" persistent-placeholder
                                                   :rules="[v => validate(v, 'required')]" :disabled="disabled"
@@ -109,11 +122,11 @@ watch(dialogOpen, val => {
                         </v-col>
                         <v-col cols="6">
                             <v-text-field label="Month" variant="outlined" density="compact" color="primary" hide-details readonly
-                                          v-model="piProcessor.currentSession.form.custrecord_1301_month"></v-text-field>
+                                          v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_month"></v-text-field>
                         </v-col>
                         <v-col cols="6">
                             <v-text-field label="Year" variant="outlined" density="compact" color="primary" hide-details readonly
-                                          v-model="piProcessor.currentSession.form.custrecord_1301_year"></v-text-field>
+                                          v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_year"></v-text-field>
                         </v-col>
                     </template>
 
@@ -125,7 +138,7 @@ watch(dialogOpen, val => {
                                 Pricing Rules:
                             </v-list-item>
 
-                            <v-list-item v-for="(pricingRule, index) in pricingRules" :key="'rule' + index">
+                            <v-list-item v-for="(pricingRule, index) in servicePricingRules" :key="'rule' + index">
                                 <InlineSelect :items="serviceTypes" v-model="pricingRule.services">
                                     <template v-slot:activator="{ activatorProps }">
                                         <span v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>{{ getServiceTypeText(pricingRule.services) }}</u></b></span>
@@ -143,7 +156,10 @@ watch(dialogOpen, val => {
                                 </InlineTextField>
 
                                 <template v-slot:append>
-                                    <v-btn variant="text" color="red" @click="piProcessor.removeRule(index)"><v-icon color="red">mdi-close</v-icon></v-btn>
+                                    <v-btn variant="text" color="red"
+                                           @click="priceAdjustmentRecord.id ? priceAdjustmentRecord.removeRule(index) : priceAdjustmentRule.removeRule(index)">
+                                        <v-icon color="red">mdi-close</v-icon>
+                                    </v-btn>
                                 </template>
                             </v-list-item>
 
@@ -167,16 +183,16 @@ watch(dialogOpen, val => {
 
                     <v-col cols="auto">
                         <v-btn-group variant="elevated" color="green" divided density="compact">
-                            <v-btn @click="proceed()" v-if="!piProcessor.currentSession.id">Create Rules</v-btn>
+                            <v-btn @click="proceed()" v-if="!priceAdjustmentRule.currentSession.id">Create Rules</v-btn>
                             <template v-else>
                                 <v-btn size="small" @click="proceed()">Save Rules</v-btn>
 
-                                <v-menu location="bottom end" v-if="franchiseeStore.current.id">
+                                <v-menu open-on-hover location="bottom end" v-if="franchiseeStore.current.id">
                                     <template v-slot:activator="{ props }">
                                         <v-btn size="small" icon="mdi-chevron-down" v-bind="props"></v-btn>
                                     </template>
                                     <v-list density="compact">
-                                        <v-list-item @click="() => {}">
+                                        <v-list-item @click="proceed(true)">
                                             <v-list-item-title>Save & Apply Rules</v-list-item-title>
                                         </v-list-item>
                                     </v-list>

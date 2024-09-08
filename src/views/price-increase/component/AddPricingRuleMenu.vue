@@ -1,11 +1,13 @@
 <script setup>
 import { computed, ref, watch } from "vue";
-import { usePriceIncreaseStore } from "@/stores/price-increase";
+import { usePricingRules } from "@/stores/pricing-rules";
 import { useDataStore } from "@/stores/data";
 import { checkSubset } from "@/utils/utils.mjs";
+import { usePriceAdjustment } from "@/stores/price-adjustment";
 
 const dataStore = useDataStore();
-const piProcessor = usePriceIncreaseStore();
+const pricingRules = usePricingRules();
+const priceAdjustmentRecord = usePriceAdjustment();
 
 const menuOpen = ref(false);
 const form = ref({
@@ -13,15 +15,23 @@ const form = ref({
     adjustment: 0,
 })
 
+const servicePricingRules = computed(() => priceAdjustmentRecord.id
+    ? priceAdjustmentRecord.form.custrecord_1302_pricing_rules
+    : pricingRules.currentSession.form.custrecord_1301_pricing_rules);
+
 const serviceTypes = computed(() => {
     const usedTypes = [];
-    for (let rule of piProcessor.currentSession.form.custrecord_1301_pricing_rules) usedTypes.push(...rule.services);
+    for (let rule of servicePricingRules.value) usedTypes.push(...rule.services);
 
     return dataStore.serviceTypes.filter(item => !checkSubset(usedTypes, item.value));
 })
 
 function addNewRule() {
-    piProcessor.addNewRule(form.value.serviceTypes['title'], form.value.serviceTypes['value'], form.value.adjustment);
+    if (priceAdjustmentRecord.id)
+        priceAdjustmentRecord.addNewRule(form.value.serviceTypes['title'], form.value.serviceTypes['value'], form.value.adjustment);
+    else
+        pricingRules.addNewRule(form.value.serviceTypes['title'], form.value.serviceTypes['value'], form.value.adjustment);
+
     menuOpen.value = false;
 }
 

@@ -8,7 +8,6 @@ import DevSideBar from '@/views/dev/components/DevSideBar.vue';
 const mainStore = useMainStore();
 
 onMounted(() => {
-    console.log('onMounted')
     mainStore.init();
 })
 

@@ -1,27 +1,32 @@
 <script setup>
 import { AgGridVue } from "ag-grid-vue3"; // Vue Data Grid Component
 import { computed } from "vue";
-import { usePriceIncreaseStore } from "@/stores/price-increase";
 import agButtonCell from '@/views/price-increase/component/agButtonCell.vue';
 import agFilterConfirmedColumn from '@/views/price-increase/component/agFilterConfirmedColumn.vue';
-import { formatPrice } from "@/utils/utils.mjs";
+import { debounce, formatPrice } from "@/utils/utils.mjs";
+import { usePriceAdjustment } from "@/stores/price-adjustment";
 
-
-const piProcessor = usePriceIncreaseStore();
+const priceAdjustment = usePriceAdjustment();
 
 const rowData = computed({
     get() {
-        return piProcessor.currentSession.franchiseeData;
+        return priceAdjustment.priceAdjustmentData;
     },
     set(val) {
         if (Array.isArray(val)) {
             for (let [index, value] of val.entries())
-                piProcessor.currentSession.franchiseeData.splice(index, 1, value)
+                priceAdjustment.priceAdjustmentData.splice(index, 1, value)
 
-            piProcessor.currentSession.franchiseeData.splice(val.length);
+            priceAdjustment.priceAdjustmentData.splice(val.length);
         }
     }
 })
+
+const onDataChanged = async () => {
+    await priceAdjustment.savePriceAdjustmentRecord();
+}
+
+const debouncedSave = debounce(onDataChanged, 1000, {trailing: true, leading: false});
 
 const columnDefs = [
     {
@@ -31,14 +36,18 @@ const columnDefs = [
         }
     },
     {
-        field: 'custrecord_1288_notes', headerName: 'Customer', editable: false, filter: true, width: '300px',
-        valueGetter: params => `${params.data['CUSTRECORD_SERVICE_CUSTOMER.entityid']} ${params.data['CUSTRECORD_SERVICE_CUSTOMER.companyname']}`
+        headerName: 'ID', editable: false, filter: true, width: '80px',
+        valueGetter: params => params.data['CUSTRECORD_SERVICE_CUSTOMER.entityid']
+    },
+    {
+        headerName: 'Customer', editable: false, filter: true, width: '280px',
+        valueGetter: params => params.data['CUSTRECORD_SERVICE_CUSTOMER.companyname']
     },
     {
         field: 'custrecord_service_text', headerName: 'Service', editable: false, filter: true, width: '150px',
     },
     {
-        field: 'custrecord_service_price', headerName: 'Current Price', editable: false, filter: true, width: '150px',
+        headerName: 'Current Price', editable: false, filter: true, width: '150px',
         valueGetter: params => formatPrice(params.data['custrecord_service_price'])
     },
     {
@@ -48,6 +57,7 @@ const columnDefs = [
             const previousValue = params.data.adjustment;
             params.data.adjustment = isNaN(parseFloat(params.newValue)) ? 0 : parseFloat(params.newValue);
             if (previousValue !== params.data.adjustment) params.data.confirmed = false;
+            debouncedSave();
             return true;
         },
     },
@@ -57,7 +67,12 @@ const columnDefs = [
     },
     {
         field: 'confirmed', headerName: '', editable: false, filter: 'agFilterConfirmedColumn', width: '100px', cellRenderer: 'agButtonCell',
-        valueGetter: params => params.data['confirmed']
+        valueGetter: params => params.data['confirmed'],
+        valueSetter: params => {
+            params.data.confirmed = params.newValue;
+            debouncedSave();
+            return true;
+        },
     },
     //{ field: 'confirmed', headerName: "", width: '100px', pinned: 'right', cellRenderer: 'agButtonCell', cellClass: 'ag-right-pinned-col', selectable: false, },
 ];

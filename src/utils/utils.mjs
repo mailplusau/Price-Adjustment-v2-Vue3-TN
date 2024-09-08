@@ -107,16 +107,31 @@ export function readFileAsBase64(fileObject) {
     });
 }
 
-export function debounce(fn, wait){
-    let timer;
-    return function(...args){
-        if(timer) {
-            clearTimeout(timer); // clear any pre-existing timer
+export const debounce = (fn, delay, option = { leading: true, trailing: true}) => {
+    let timeout;
+    let isLeadingInvoked = false;
+
+    return function (...args) {
+        const context = this;
+
+        // base condition
+        if (timeout) {
+            clearTimeout(timeout);
         }
-        const context = this; // get the current context
-        timer = setTimeout(()=>{
-            fn.apply(context, args); // call the function if time expires
-        }, wait);
+
+        // handle leading
+        if (option.leading && !timeout) {
+            fn.apply(context, args);
+            isLeadingInvoked = true;
+        } else isLeadingInvoked = false;
+
+        // handle trailing
+        timeout = setTimeout(() => {
+            if (option.trailing && !isLeadingInvoked)
+                fn.apply(context, args);
+
+            timeout = null;
+        }, delay);
     }
 }
 

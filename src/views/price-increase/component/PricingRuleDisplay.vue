@@ -1,13 +1,10 @@
 <script setup>
-import { computed } from "vue";
 import { checkSubset, formatPrice } from "@/utils/utils.mjs";
 import { useDataStore } from "@/stores/data";
-import { usePriceIncreaseStore } from "@/stores/price-increase";
+import { usePricingRules } from "@/stores/pricing-rules";
 
 const dataStore = useDataStore();
-const piProcessor = usePriceIncreaseStore();
-
-const pricingRules = computed(() => piProcessor.currentSession.form.custrecord_1301_pricing_rules);
+const pricingRules = usePricingRules();
 
 function getServiceTypeText(serviceTypeIds) {
     let index = dataStore.serviceTypes.findIndex(item => checkSubset(serviceTypeIds, item.value) && serviceTypeIds.length === item.value.length);
@@ -21,7 +18,8 @@ function getServiceTypeText(serviceTypeIds) {
             <slot name="activator" :activatorProps="activatorProps"></slot>
         </template>
         <v-card min-width="250" color="background" class="bg-background py-3 pr-3 pl-1">
-            <div v-for="(pricingRule, index) in pricingRules" :key="'rule' + index" class="pricing-rule text-subtitle-2">
+            <div v-for="(pricingRule, index) in pricingRules.currentSession.form.custrecord_1301_pricing_rules"
+                 :key="'rule' + index" class="pricing-rule text-subtitle-2">
                 <v-icon class="mr-1" size="large">mdi-circle-small</v-icon>
                 <span class="text-primary cursor-pointer"><b><u>{{ getServiceTypeText(pricingRule.services) }}</u></b></span>
 
