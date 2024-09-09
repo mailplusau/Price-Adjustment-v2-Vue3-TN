@@ -73,7 +73,7 @@ const actions = {
     async savePriceAdjustmentRecord(applyPricingRules = false) {
         this.savingData = true;
 
-        if (applyPricingRules)
+        if (applyPricingRules) {
             applyPricingRules = await new Promise(resolve => {
                 useGlobalDialog().displayInfo('Applying Pricing Rules',
                     `Would you like to overwrite all price adjustments that you made with the Pricing Rules?`,
@@ -85,7 +85,8 @@ const actions = {
                     ]);
             });
 
-        useGlobalDialog().displayProgress('', 'Saving Price Increase Record...');
+            useGlobalDialog().displayProgress('', 'Saving Price Increase Record...');
+        }
 
         if (applyPricingRules) {
             const priceAdjustmentData = await _getServicesOfFranchisee();
@@ -107,6 +108,7 @@ const actions = {
         await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentRecordId: this.id, priceAdjustmentData});
         this.savingData = false;
     },
+
     async confirmAllPriceAdjustments() {
         this.priceAdjustmentData = this.priceAdjustmentData.map(item => ({...item, confirmed: true}));
         await this.savePriceAdjustmentRecord();
@@ -149,8 +151,9 @@ async function _getServicesOfFranchisee() {
     ])
 
     services.sort((a, b) =>
-        simpleCompare(a['CUSTRECORD_SERVICE_CUSTOMER.entityid'], b['CUSTRECORD_SERVICE_CUSTOMER.entityid']) ||
-        simpleCompare(a['custrecord_service_franchisee_text'], b['custrecord_service_franchisee_text'])
+        simpleCompare(a['CUSTRECORD_SERVICE_CUSTOMER.companyname'], b['CUSTRECORD_SERVICE_CUSTOMER.companyname']) ||
+        simpleCompare(a['custrecord_service_franchisee_text'], b['custrecord_service_franchisee_text']) ||
+        simpleCompare(a['CUSTRECORD_SERVICE_CUSTOMER.entityid'], b['CUSTRECORD_SERVICE_CUSTOMER.entityid'])
     );
 
     invoices.forEach(invoice => {

@@ -38,8 +38,7 @@ const menuOpen = ref(false);
 const inputValue = ref(null);
 const mainInput = ref();
 
-function handleSelection(val) {
-    console.log('handleSelection', val);
+function handleSelection() {
     menuOpen.value = false;
 }
 

@@ -109,6 +109,27 @@ const actions = {
             fakeProgressInterval = null;
             elapsedTime = 0;
         }
+    },
+
+    displayConfirmation(title, message, yesBtnText = 'Yes', noBtnText = 'No', maxWith = 500) {
+        this.stopFakeProgress();
+        this.title = title;
+        this.body = message;
+        this.busy = false;
+        this.open = true;
+        this.progress = -1;
+        this.persistent = true;
+        this.maxWith = maxWith;
+        this.isError = false;
+        this.hideButtons = false;
+        return new Promise(resolve => {
+            this.buttons = [
+                'spacer',
+                {color: 'red', variant: 'elevated', text: noBtnText, action:() => { resolve(0); this.open = false; }, class: 'text-none'},
+                {color: 'green', variant: 'elevated', text: yesBtnText, action:() => { resolve(1); this.open = false; }, class: 'text-none'},
+                'spacer',
+            ];
+        })
     }
 };
 

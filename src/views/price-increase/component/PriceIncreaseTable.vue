@@ -1,12 +1,17 @@
 <script setup>
 import { AgGridVue } from "ag-grid-vue3"; // Vue Data Grid Component
-import { computed } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import agButtonCell from '@/views/price-increase/component/agButtonCell.vue';
 import agFilterConfirmedColumn from '@/views/price-increase/component/agFilterConfirmedColumn.vue';
 import { debounce, formatPrice } from "@/utils/utils.mjs";
 import { usePriceAdjustment } from "@/stores/price-adjustment";
+import AgContextMenu from "@/views/price-increase/component/agContextMenu.vue";
 
 const priceAdjustment = usePriceAdjustment();
+
+const props = defineProps(['searchText']);
+const contextMenu = ref();
+const gridApi = shallowRef();
 
 const rowData = computed({
     get() {
@@ -21,6 +26,10 @@ const rowData = computed({
         }
     }
 })
+
+const onGridReady = (params) => {
+    gridApi.value = params.api;
+};
 
 const onDataChanged = async () => {
     await priceAdjustment.savePriceAdjustmentRecord();
@@ -62,7 +71,7 @@ const columnDefs = [
         },
     },
     {
-        headerName: 'New Price', editable: false, filter: true, width: '120px',
+        headerName: 'New Price', editable: false, filter: true, width: '120px', enableCellChangeFlash: true,
         valueGetter: params => formatPrice(parseFloat(params.data.adjustment) + parseFloat(params.data['custrecord_service_price']))
     },
     {
@@ -77,6 +86,14 @@ const columnDefs = [
     //{ field: 'confirmed', headerName: "", width: '100px', pinned: 'right', cellRenderer: 'agButtonCell', cellClass: 'ag-right-pinned-col', selectable: false, },
 ];
 
+function handleCellMouseDown(e) {
+    contextMenu.value.handleCellMouseDown(e);
+}
+
+watch(() => props.searchText, val => {
+    gridApi.value.setGridOption("quickFilterText", val,);
+})
+
 defineExpose({agButtonCell, agFilterConfirmedColumn})
 </script>
 
@@ -87,9 +104,13 @@ defineExpose({agButtonCell, agFilterConfirmedColumn})
                  :columnDefs="columnDefs"
                  :preventDefaultOnContextMenu="true"
                  :getRowClass="params => params.data.highlightClass"
+                 :enableCellTextSelection="true"
+                 @gridReady="onGridReady"
+                 @cellMouseDown="handleCellMouseDown"
                  v-model="rowData">
     </ag-grid-vue>
-    <agButtonCell />
+
+    <agContextMenu ref="contextMenu" />
 </template>
 
 <style lang="scss">
