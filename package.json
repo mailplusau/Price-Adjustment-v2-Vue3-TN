@@ -9,8 +9,10 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "format": "prettier --write src/",
     "postbuild": "node netsuite.upload.mjs",
-    "upload-suitelet": "node netsuite.upload.mjs SuiteScripts\\suitelet_script.js resolve:env resolve:imports resolve:filenames",
-    "upload-client": "node netsuite.upload.mjs SuiteScripts\\client_script.js resolve:env resolve:imports resolve:filenames"
+    "upload-suitelet": "node netsuite.upload.mjs SuiteScripts\\suitelet_script.js resolve:dependencies",
+    "upload-client": "node netsuite.upload.mjs SuiteScripts\\client_script.js resolve:dependencies",
+    "upload-s.script": "node netsuite.upload.mjs SuiteScripts\\scheduled_script.js resolve:dependencies",
+    "upload-mr.script": "node netsuite.upload.mjs SuiteScripts\\mare_script.js resolve:dependencies"
   },
   "netsuite": {
     "projectName": "price_increase",
@@ -20,6 +22,7 @@
     "@mdi/font": "^7.4.47",
     "ag-grid-vue3": "^32.1.0",
     "date-fns": "^3.6.0",
+    "netsuite-shared-modules": "file:../netsuite-shared-modules",
     "pinia": "^2.1.6",
     "roboto-fontface": "*",
     "superagent": "^9.0.0",
@@ -34,6 +37,7 @@
     "@vue/eslint-config-prettier": "^8.0.0",
     "compare-versions": "^3.5.0",
     "dotenv": "^16.0.3",
+    "esbuild": "^0.23.1",
     "eslint": "^8.49.0",
     "eslint-plugin-vue": "^9.17.0",
     "jsdom": "^22.1.0",
