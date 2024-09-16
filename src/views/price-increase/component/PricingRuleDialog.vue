@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { checkSubset, formatPrice, rules } from "@/utils/utils.mjs";
-import { set } from 'date-fns';
+import { set, addDays } from 'date-fns';
 import DatePicker from "@/components/shared/DatePicker.vue";
 import InlineTextField from "@/components/shared/InlineTextField.vue";
 import InlineSelect from "@/components/shared/InlineSelect.vue";
@@ -43,7 +43,7 @@ const minDeadline = computed(() => !priceAdjustmentRule.currentSession.form.cust
     ? '' : set(priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date, {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
 
 const minEffectiveDate = computed(() => !priceAdjustmentRule.currentSession.form.custrecord_1301_deadline
-    ? '' : set(priceAdjustmentRule.currentSession.form.custrecord_1301_deadline, {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
+    ? '' : set(addDays(priceAdjustmentRule.currentSession.form.custrecord_1301_deadline, 14), {hours: 14, minutes: 0, seconds: 0, milliseconds: 0}).toISOString());
 
 function getServiceTypeText(serviceTypeIds) {
     let index = dataStore.serviceTypes.findIndex(item => checkSubset(serviceTypeIds, item.value) && serviceTypeIds.length === item.value.length);
@@ -85,10 +85,10 @@ watch(dialogOpen, () => {
         <v-card color="background">
             <v-container fluid>
                 <v-form class="v-row justify-center" ref="mainForm" v-model="formValid">
-                    <v-col cols="12" class="text-h5 text-center text-primary">Rules for Price Increase 2024</v-col>
+                    <v-col cols="12" class="text-h5 text-center text-primary">Price Adjustment Rules</v-col>
 
                     <template v-if="userStore.isAdmin">
-                        <v-col cols="4">
+                        <v-col cols="4" class="mb-4">
                             <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date" title="Opening Date"
                                         @update:model-value="priceAdjustmentRule.handleDatesChanged">
                                 <template v-slot:activator="{ activatorProps, displayDate }">
@@ -98,7 +98,7 @@ watch(dialogOpen, () => {
                                 </template>
                             </DatePicker>
                         </v-col>
-                        <v-col cols="4">
+                        <v-col cols="4" class="mb-4">
                             <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_deadline" title="Deadline" :min="minDeadline"
                                         :disabled="!priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date"
                                         @update:model-value="priceAdjustmentRule.handleDatesChanged">
@@ -109,7 +109,7 @@ watch(dialogOpen, () => {
                                 </template>
                             </DatePicker>
                         </v-col>
-                        <v-col cols="4">
+                        <v-col cols="4" class="mb-4">
                             <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_effective_date" title="Effective Date" :min="minEffectiveDate"
                                         :disabled="!priceAdjustmentRule.currentSession.form.custrecord_1301_deadline"
                                         @update:model-value="priceAdjustmentRule.handleDatesChanged">
@@ -120,17 +120,9 @@ watch(dialogOpen, () => {
                                 </template>
                             </DatePicker>
                         </v-col>
-                        <v-col cols="6">
-                            <v-text-field label="Month" variant="outlined" density="compact" color="primary" hide-details readonly
-                                          v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_month"></v-text-field>
-                        </v-col>
-                        <v-col cols="6">
-                            <v-text-field label="Year" variant="outlined" density="compact" color="primary" hide-details readonly
-                                          v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_year"></v-text-field>
-                        </v-col>
                     </template>
 
-                    <v-divider class="mt-4"></v-divider>
+                    <v-divider></v-divider>
 
                     <v-col cols="12">
                         <v-list class="bg-background">
@@ -139,19 +131,19 @@ watch(dialogOpen, () => {
                             </v-list-item>
 
                             <v-list-item v-for="(pricingRule, index) in servicePricingRules" :key="'rule' + index">
-                                <InlineSelect :items="serviceTypes" v-model="pricingRule.services">
+                                <InlineSelect :items="serviceTypes" v-model="pricingRule['services']">
                                     <template v-slot:activator="{ activatorProps }">
-                                        <span v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>{{ getServiceTypeText(pricingRule.services) }}</u></b></span>
+                                        <span v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>{{ getServiceTypeText(pricingRule['services']) }}</u></b></span>
                                     </template>
                                 </InlineSelect>
 
-                                <span v-if="pricingRule.adjustment > 0"> service price <b class="text-green">increases</b> by </span>
-                                <span v-else-if="pricingRule.adjustment < 0"> service price <b class="text-red">decreases</b> by </span>
+                                <span v-if="pricingRule['adjustment'] > 0"> service price <b class="text-green">increases</b> by </span>
+                                <span v-else-if="pricingRule['adjustment'] < 0"> service price <b class="text-red">decreases</b> by </span>
                                 <span v-else> service price remains unchanged: </span>
 
-                                <InlineTextField v-model="pricingRule.adjustment" prefix="A$">
+                                <InlineTextField v-model="pricingRule['adjustment']" prefix="A$">
                                     <template v-slot:activator="{ activatorProps }">
-                                        <span v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>{{ formatPrice(Math.abs(pricingRule.adjustment)) }}</u></b></span>
+                                        <span v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>{{ formatPrice(Math.abs(pricingRule['adjustment'])) }}</u></b></span>
                                     </template>
                                 </InlineTextField>
 

@@ -28,7 +28,8 @@ const actions = {
         await useUserStore().init();
 
         if (!useUserStore().isAdmin && !useUserStore().isFranchisee)
-            return useGlobalDialog().displayError('Unauthorized', 'You do not have access to this page.', 500, [], true);
+            return useGlobalDialog().displayError('Unauthorized',
+                'You do not have access to this page.', 500, [], true);
 
         useGlobalDialog().displayProgress('', 'Retrieving rules for Price Increase...');
         await usePricingRules().init();
@@ -37,7 +38,8 @@ const actions = {
         await useFranchiseeStore().init();
 
         if (!usePricingRules().currentSession.id && useUserStore().isFranchisee)
-            return useGlobalDialog().displayError('Error', 'Price Increase is not in progress. Please check back later.');
+            return useGlobalDialog().displayError('Error',
+                'Price Increase is not in progress. Please check back later.', 500, [], true);
 
         if (useUserStore().isFranchisee)
             useGlobalDialog().body = 'Retrieving your customers and their services...';

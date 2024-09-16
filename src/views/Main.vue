@@ -62,7 +62,7 @@ function formatDate(dateObj) {
 
                     <v-slide-x-transition leave-absolute mode="out-in">
                         <v-card v-if="showSearchBox" color="transparent" flat>
-                            <v-text-field class="ml-4" variant="outlined" density="compact" ref="gridSearchBox" v-model="searchText"
+                            <v-text-field class="ml-4" variant="solo" density="compact" ref="gridSearchBox" v-model="searchText"
                                           hide-details placeholder="Search..." persistent-placeholder max-width="400" width="400"
                                           append-icon="mdi-close" @click:append="showSearchBox = false"></v-text-field>
                         </v-card>
@@ -99,8 +99,8 @@ function formatDate(dateObj) {
 
                             <PricingRuleDialog class="ml-4"/>
 
-                            <ButtonWithConfirmationPopup v-if="priceAdjustments.priceAdjustmentData.length" tooltip="Confirm all Price Increase for all"
-                                                         message="Are you sure you want to confirm Price Increase for all Customers?"
+                            <ButtonWithConfirmationPopup v-if="priceAdjustments.priceAdjustmentData.length" tooltip="Confirm all Price Adjustments for every customer"
+                                                         message="Are you sure you want to confirm Price Adjustments for all Customers?"
                                                          @confirmed="priceAdjustments.confirmAllPriceAdjustments()">
                                 <template v-slot:activator="{ activatorProps }">
                                     <v-btn v-bind="activatorProps" :disabled="!hasUnconfirmedPriceAdjustment"

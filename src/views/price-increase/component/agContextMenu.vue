@@ -6,6 +6,7 @@ import { usePriceAdjustment } from "@/stores/price-adjustment";
 
 const globalDialog = useGlobalDialog();
 const priceAdjustment = usePriceAdjustment();
+const baseUrl = 'https://' + import.meta.env.VITE_NS_REALM + '.app.netsuite.com';
 let gridApi = null;
 
 const contextMenu = ref({
@@ -37,6 +38,10 @@ function handleCellMouseDown(cellMouseDownEvent) {
         contextMenu.value.y = cellMouseDownEvent.event.clientY
         nextTick(() => { contextMenu.value.show = true; })
     }
+}
+
+function viewCustomerRecord(customerId) {
+    top.open(`${baseUrl}/app/common/entity/custjob.nl?id=${customerId}`, '_blank').focus();
 }
 
 async function applyAdjustmentToServicesOfSameType() {
@@ -132,6 +137,12 @@ defineExpose({handleCellMouseDown})
                 <b class="text-secondary">{{ contextMenu.data['custrecord_service_text'] }}</b>
                 <span> service of </span>
                 <b class="text-secondary">{{ contextMenu.data['CUSTRECORD_SERVICE_CUSTOMER.companyname'] }}</b>
+            </v-list-item>
+
+            <v-divider></v-divider>
+
+            <v-list-item class="text-caption" @click="viewCustomerRecord(contextMenu.data['CUSTRECORD_SERVICE_CUSTOMER.internalid'])">
+                View customer's record
             </v-list-item>
 
             <v-divider></v-divider>
