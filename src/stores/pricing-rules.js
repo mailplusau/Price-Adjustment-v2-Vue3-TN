@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import http from '@/utils/http.mjs';
-import { pricingRule } from "@/utils/defaults.mjs";
+import { pricingRule } from "netsuite-shared-modules";
 import { useGlobalDialog } from "@/stores/global-dialog";
 import { isoStringRegex } from "@/utils/utils.mjs";
 import { addDays, set } from 'date-fns';
@@ -34,23 +34,16 @@ const actions = {
         this.currentSession.details.custrecord_1301_opening_date = set(addDays(new Date(), 1), {hours: 14, minutes: 0, seconds: 0, milliseconds: 0});
 
         let data = await http.get('getAllPriceAdjustmentRules');
-        const thisYear = (new Date()).getFullYear();
-        // let index = Array.isArray(data) ? data.findIndex(item => parseInt(item.custrecord_1301_year) === thisYear) : -1;
-        let index = Array.isArray(data) ? data.length - 1 : -1;
+
+        // get the active record by looking at the missing closing date (i.e. pricing rule that is still active)
+        let index = Array.isArray(data) ? data.findIndex(item => !item['custrecord_1301_closing_date']) : -1;
 
         if (index < 0) {
             if (!useUserStore().isAdmin) return;
 
-            let res = await new Promise(resolve => {
-                useGlobalDialog().displayError('Error',
-                    `No Price Increase rule found for the year ${thisYear}. Would you like to initialize Price Increase Rules for ${thisYear}`,
-                    500, [
-                        'spacer',
-                        {color: 'red', variant: 'outlined', text: 'Cancel', action:() => { resolve(0) }},
-                        {color: 'green', variant: 'elevated', text: 'Initialize Price Increase', action:() => { resolve(1) }},
-                        'spacer',
-                    ]);
-            });
+            let res = await useGlobalDialog().displayConfirmation('',
+                'No active Price Adjustment Record found. Would you like to initiate a new record?',
+                'Initiate New Record', 'Cancel')
 
             if (!res) return;
 
@@ -104,14 +97,6 @@ const actions = {
         if (!this.currentSession.form.custrecord_1301_effective_date || !this.currentSession.form.custrecord_1301_deadline ||
             this.currentSession.form.custrecord_1301_effective_date <= this.currentSession.form.custrecord_1301_deadline)
             this.currentSession.form.custrecord_1301_effective_date = null;
-
-        if (this.currentSession.form.custrecord_1301_effective_date) {
-            this.currentSession.form.custrecord_1301_year = (this.currentSession.form.custrecord_1301_effective_date).getFullYear();
-            this.currentSession.form.custrecord_1301_month = (this.currentSession.form.custrecord_1301_effective_date).getMonth() + 1;
-        } else {
-            this.currentSession.form.custrecord_1301_year = '';
-            this.currentSession.form.custrecord_1301_month = '';
-        }
     },
 };
 

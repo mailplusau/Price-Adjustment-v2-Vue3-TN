@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import http from '@/utils/http.mjs';
-import {franchisee as franchiseeFields} from '@/utils/defaults.mjs'
+import {franchisee as franchiseeFields} from 'netsuite-shared-modules'
 import { useUserStore } from "@/stores/user";
 import { useCustomerStore } from "@/stores/customers";
 import { useServiceStore } from "@/stores/services";

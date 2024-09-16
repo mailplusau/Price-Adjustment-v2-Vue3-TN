@@ -4,7 +4,7 @@ import http from "@/utils/http.mjs";
 import { simpleCompare } from "@/utils/utils.mjs";
 import { parse, subMonths } from "date-fns";
 import { usePricingRules } from "@/stores/pricing-rules";
-import { priceAdjustment } from "@/utils/defaults.mjs";
+import { priceAdjustment } from "netsuite-shared-modules";
 import { useGlobalDialog } from "@/stores/global-dialog";
 
 const state = {

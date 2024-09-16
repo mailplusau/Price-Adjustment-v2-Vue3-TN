@@ -7,11 +7,12 @@
  */
 
 import {VARS} from '@/utils/utils.mjs';
-import { customer as customerFields, franchisee as franchiseeFields, serviceChange as serviceChangeFields, commReg as commRegFields, pricingRule as pricingRuleFields, priceAdjustment as priceAdjustmentFields,  serviceFieldIds } from "@/utils/defaults.mjs";
+import { franchisee as franchiseeFields, pricingRule as pricingRuleFields } from "netsuite-shared-modules";
+import { getFranchiseesByFilters, getPriceAdjustmentRulesByFilters, getCustomersByFilters, getInvoicesByFilters, getPriceAdjustmentOfFranchiseeByFilter, getServicesByFilters } from 'netsuite-shared-modules';
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
-let htmlTemplateFilename/**/;
-let clientScriptFilename/**/;
+let htmlTemplateFilename;
+let clientScriptFilename;
 
 const isoStringRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z?$/;
 const defaultTitle = VARS.pageTitle;
@@ -184,7 +185,7 @@ const getOperations = {
         _writeResponseJson(response, partner);
     },
     'getAllFranchisees' : function (response) {
-        _writeResponseJson(response, _.getFranchiseesByFilters([
+        _writeResponseJson(response, getFranchiseesByFilters(NS_MODULES, [
             ['isInactive'.toLowerCase(), 'is', false]
         ]));
     },
@@ -215,7 +216,7 @@ const getOperations = {
             194183, // Mulgrave
             192117, // Newcastle
         ]
-        _writeResponseJson(response, _.getCustomersByFilters([
+        _writeResponseJson(response, getCustomersByFilters(NS_MODULES, [
             ['entitystatus', 'is', 13],
             'AND',
             ['partner', 'noneof', franchiseesToExclude],
@@ -226,14 +227,14 @@ const getOperations = {
         ], ['entityid', 'companyname', 'partner'], true));
     },
     'getInvoicesByCustomerId' : function (response, {customerId}) {
-        _writeResponseJson(response, _.getInvoicesByFilters([
+        _writeResponseJson(response, getInvoicesByFilters(NS_MODULES, [
             ["type", "anyof", "CustInvc"],
             'AND', ["mainline", "is", "T"],
             'AND', ['entity', 'is', customerId],
         ]))
     },
     'getEligibleInvoicesByFranchiseeId' : function (response, {franchiseeId}) {
-        _writeResponseJson(response, _.getInvoicesByFilters([
+        _writeResponseJson(response, getInvoicesByFilters(NS_MODULES, [
             ['type', 'is', 'CustInvc'],
             'AND', ['customer.partner', 'is', franchiseeId],
             'AND', ['customer.status', 'is', 13], // Signed (13)
@@ -244,7 +245,7 @@ const getOperations = {
         ], ['trandate', 'customer.internalid', 'customer.entityid', 'customer.companyname'], true))
     },
     'getActiveServicesByCustomerId' : function (response, {customerId}) {
-        _writeResponseJson(response, _.getServicesByFilters([
+        _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
             ['isinactive', 'is', false],
             'AND',
             ['custrecord_service_category', 'is', 1], // We take records under the Category: Services (1) only
@@ -303,7 +304,7 @@ const getOperations = {
         _writeResponseJson(response, items);
     },
     'getActiveServicesByFranchiseeId' : function (response, {franchiseeId}) {
-        _writeResponseJson(response, _.getServicesByFilters([
+        _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
             ['custrecord_service_franchisee', 'anyof', franchiseeId],
             'AND',
             ['custrecord_service_customer.status' ,'anyof', '13'],
@@ -342,10 +343,10 @@ const getOperations = {
 
     },
     'getAllPriceAdjustmentRules' : function(response) {
-        _writeResponseJson(response, _.getPriceAdjustmentRulesByFilters([]));
+        _writeResponseJson(response, getPriceAdjustmentRulesByFilters(NS_MODULES, []));
     },
     'getPriceAdjustmentOfFranchisee' : function (response, {priceAdjustmentRuleId, franchiseeId}) {
-        _writeResponseJson(response, _.getPriceAdjustmentOfFranchiseeByFilter([
+        _writeResponseJson(response, getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, [
             ['custrecord_1302_master_record', 'is', priceAdjustmentRuleId],
             'AND',
             ['custrecord_1302_franchisee', 'is', franchiseeId]
@@ -424,91 +425,3 @@ const postOperations = {
         _writeResponseJson(response, {priceAdjustmentRecordId: priceAdjustmentRecord.save({ignoreMandatoryFields: true})});
     }
 };
-
-const _ = {
-    getCustomerData(customerId, fieldIds) {
-        let {record} = NS_MODULES;
-        let data = {};
-
-        let customerRecord = record.load({
-            type: 'customer',
-            id: customerId,
-        });
-
-        for (let fieldId of fieldIds) {
-            data[fieldId] = customerRecord.getValue({fieldId});
-            data[fieldId + '_text'] = customerRecord.getText({fieldId});
-        }
-
-        return data;
-    },
-    getCustomersByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customer', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(customerFields.basic), ...additionalColumns]);
-    },
-    getFranchiseesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('partner', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(franchiseeFields), ...additionalColumns]);
-    },
-    getServicesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customrecord_service', filters,
-            overwriteColumns ? [...additionalColumns] : [...serviceFieldIds, ...additionalColumns]);
-    },
-    getServiceChangesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customrecord_servicechg', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(serviceChangeFields), ...additionalColumns]);
-    },
-    getCommRegsByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customrecord_commencement_register', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(commRegFields), ...additionalColumns]);
-    },
-    getEmployeesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('employee', filters,
-            overwriteColumns ? [...additionalColumns] : [...['email', 'entityid'], ...additionalColumns]);
-    },
-    getInvoicesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        let columns = ['statusref', 'trandate', 'invoicenum', 'amountremaining', 'total', 'duedate', 'custbody_inv_type', 'tranid'];
-
-        return this.runNetSuiteSearch('invoice', filters,
-            overwriteColumns ? [...additionalColumns] : [...columns, ...additionalColumns]);
-    },
-    getPriceAdjustmentRulesByFilters(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customrecord_price_adjustment_rules', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(pricingRuleFields), ...additionalColumns]);
-    },
-    getPriceAdjustmentOfFranchiseeByFilter(filters, additionalColumns = [], overwriteColumns = false) {
-        return this.runNetSuiteSearch('customrecord_price_adjustment_franchisee', filters,
-            overwriteColumns ? [...additionalColumns] : [...Object.keys(priceAdjustmentFields), ...additionalColumns]);
-    },
-
-    runNetSuiteSearch(type, filters, columns) {
-        let data = [];
-        let cycle = 0;
-
-        let resultSubset = [];
-        let searchResults = NS_MODULES.search.create({ type, filters, columns }).run();
-
-        do {
-            resultSubset = searchResults['getRange']({start: cycle * 1000, end: cycle * 1000 + 1000});
-
-            for (let result of resultSubset) // we can also use getAllValues() on one of these to see all available fields
-                this.processSavedSearchResults(data, result);
-
-            cycle++;
-        } while (resultSubset.length >= 1000)
-
-        return data;
-    },
-    processSavedSearchResults(data, result) {
-        let tmp = {};
-        tmp['internalid'] = result.id;
-        for (let column of result['columns']) {
-            let columnName = [...(column.join ? [column.join] : []), column.name].join('.');
-            tmp[columnName] = result['getValue'](column);
-            tmp[columnName + '_text'] = result['getText'](column);
-        }
-        data.push(tmp);
-
-        return true;
-    }
-}
