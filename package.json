@@ -9,10 +9,10 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "format": "prettier --write src/",
     "postbuild": "node netsuite.upload.mjs",
-    "upload-suitelet": "node netsuite.upload.mjs SuiteScripts\\suitelet_script.js resolve:dependencies",
-    "upload-client": "node netsuite.upload.mjs SuiteScripts\\client_script.js resolve:dependencies",
-    "upload-s.script": "node netsuite.upload.mjs SuiteScripts\\scheduled_script.js resolve:dependencies",
-    "upload-mr.script": "node netsuite.upload.mjs SuiteScripts\\mare_script.js resolve:dependencies"
+    "upload-suitelet": "node netsuite.upload.mjs SuiteScripts\\suitelet_script.js resolve:dependencies resolve:filenames",
+    "upload-client": "node netsuite.upload.mjs SuiteScripts\\client_script.js resolve:dependencies resolve:filenames",
+    "upload-s.script": "node netsuite.upload.mjs SuiteScripts\\scheduled_script.js resolve:dependencies resolve:filenames",
+    "upload-mr.script": "node netsuite.upload.mjs SuiteScripts\\mare_script.js resolve:dependencies resolve:filenames"
   },
   "netsuite": {
     "projectName": "price_increase",

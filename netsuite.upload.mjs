@@ -297,7 +297,7 @@ function getHtmlFilename() {
         if (!process.argv[2]) // no file name argument, we're uploading the index.html file
             filePathNetSuite = filePathNetSuite.replace('index.html', getHtmlFilename());
 
-        if (process.argv.includes('resolve:dependencies')) {
+        if (process.argv.includes('resolve:filenames')) {
             let tmp = resolveFilename(filePathLocal, fileContent);
             filePathNetSuite = tmp.filePath;
             fileContent = tmp.fileContent;
