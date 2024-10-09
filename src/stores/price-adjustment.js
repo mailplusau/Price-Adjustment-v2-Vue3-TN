@@ -140,13 +140,23 @@ async function _getServicesOfFranchisee() {
 
     let lastCustomerId = '';
     let count = -1;
+    const periods = [
+        ['monthsago6', 'daysago0'],
+        ['monthsago18', 'monthsago12'],
+        ['monthsago24', 'monthsago18'],
+        ['monthsago30', 'monthsago24'],
+        ['monthsago36', 'monthsago30'],
+    ]
 
     await Promise.allSettled([
+        ...periods.map( async ([start, end]) => {
+            invoices.push(...(await http.get('getEligibleInvoicesByFranchiseeIdWithinPeriods', {franchiseeId: useFranchiseeStore().current.id, start, end})))
+        }),
         (async () => {
-            invoices = await http.get('getEligibleInvoicesByFranchiseeId', {franchiseeId: useFranchiseeStore().current.id})
-        })(),
-        (async () => {
-            services = await http.get('getActiveServicesByFranchiseeId', {franchiseeId: useFranchiseeStore().current.id})
+            services = await http.get('getActiveServicesByFranchiseeId', {
+                franchiseeId: useFranchiseeStore().current.id,
+                dateOfLastPriceAdjustment: format(subYears(new Date(usePricingRules().currentSession.details.custrecord_1301_effective_date), 1), 'd/M/y'),
+            })
         })(),
     ])
 

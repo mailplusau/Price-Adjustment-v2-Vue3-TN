@@ -244,6 +244,16 @@ const getOperations = {
             "AND", [["customer.custentity_date_of_last_price_increase", "isempty", ""],"OR",["customer.custentity_date_of_last_price_increase", "onorbefore", "lastyeartodate"]]
         ], ['trandate', 'customer.internalid', 'customer.entityid', 'customer.companyname'], true))
     },
+    'getEligibleInvoicesByFranchiseeIdWithinPeriods' : function (response, {franchiseeId, start, end}) {
+        _writeResponseJson(response, getInvoicesByFilters(NS_MODULES, [
+            ['type', 'is', 'CustInvc'],
+            'AND', ['customer.partner', 'is', franchiseeId],
+            'AND', ['customer.status', 'is', 13], // Signed (13)
+            'AND', ['mainline', 'is', true],
+            'AND', ['memorized', 'is', false],
+            'AND', ['trandate','within', start, end],
+        ], ['trandate', 'customer.internalid', 'customer.entityid', 'customer.companyname'], true))
+    },
     'getActiveServicesByCustomerId' : function (response, {customerId}) {
         _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
             ['isinactive', 'is', false],
