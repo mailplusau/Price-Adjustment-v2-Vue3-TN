@@ -1,7 +1,8 @@
 <script setup>
-import PriceIncreaseTable from "@/views/price-increase/component/PriceIncreaseTable.vue";
-import PricingRuleDialog from "@/views/price-increase/component/PricingRuleDialog.vue";
-import PricingRuleDisplay from "@/views/price-increase/component/PricingRuleDisplay.vue";
+import PriceIncreaseTable from "@/views/price-adjustment/component/PriceIncreaseTable.vue";
+// import PricingRuleDialog from "@/views/price-adjustment/component/PricingRuleDialog.vue";
+import PricingRuleDialog from "@/views/price-adjustment/rule-dialog/Main.vue";
+import PricingRuleDisplay from "@/views/price-adjustment/component/PricingRuleDisplay.vue";
 import InlineSelect from "@/components/shared/InlineSelect.vue";
 import ButtonWithConfirmationPopup from "@/components/shared/ButtonWithConfirmationPopup.vue";
 import { format} from 'date-fns';
