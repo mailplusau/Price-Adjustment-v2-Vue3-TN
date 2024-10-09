@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineModel, watch, nextTick } from "vue";
+import { ref, defineModel, watch, nextTick, computed } from "vue";
 const model = defineModel({
     required: true,
 });
@@ -10,7 +10,7 @@ const props = defineProps({
     },
     title: {
         type: String,
-        default: 'Select a date'
+        default: 'Select an item'
     },
     disabled: {
         type: Boolean,
@@ -37,6 +37,10 @@ const props = defineProps({
 const menuOpen = ref(false);
 const inputValue = ref(null);
 const mainInput = ref();
+const selectedTitle = computed(() => {
+    const index = props.items.findIndex(item => item[props.itemValue] === model.value);
+    return index >= 0 ? props.items[index][props.itemTitle] : '';
+})
 
 function handleSelection() {
     menuOpen.value = false;
@@ -58,7 +62,7 @@ watch(menuOpen, (val) => {
 <template>
     <v-menu :close-on-content-click="false" v-model="menuOpen" location="bottom center">
         <template v-slot:activator="{ props: activatorProps }">
-            <slot name="activator" :activatorProps="props.disabled ? null : activatorProps" :readonly="props.readonly"></slot>
+            <slot name="activator" :activatorProps="props.disabled ? null : activatorProps" :readonly="props.readonly" :selectedTitle="selectedTitle"></slot>
         </template>
         <v-card :min-width="props.minWidth" color="background">
             <v-autocomplete density="compact" hide-details variant="outlined" color="primary" :menu="true"

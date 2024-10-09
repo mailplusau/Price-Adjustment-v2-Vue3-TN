@@ -47,7 +47,7 @@ function clearInput() {
 }
 
 watch(dialogOpen, (val) => {
-    if (val) selectedDate.value = model.value || null;
+    if (val) selectedDate.value = model.value || (props.min ? new Date(props.min) : null) || null;
 })
 
 const displayDate = computed(() => model.value ? dateFormat.format(model.value) : '')
