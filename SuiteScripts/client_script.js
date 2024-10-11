@@ -44,6 +44,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
                 })
                 .catch(err => {
                     console.log(err);
+                    window['NS_MODULES'] = _getClientModules()
                 });
         }
 
@@ -51,7 +52,6 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
     }
 );
 
-// eslint-disable-next-line no-unused-vars
 function _getClientModules() {
     return modules;
 }
