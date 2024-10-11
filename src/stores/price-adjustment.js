@@ -113,8 +113,28 @@ const actions = {
         this.priceAdjustmentData = this.priceAdjustmentData.map(item => ({...item, confirmed: true}));
         await this.savePriceAdjustmentRecord();
     },
+    async skipAllPriceAdjustments() {
+        const res = await useGlobalDialog().displayConfirmation('',
+            `You are about to <b class="text-red">skip all price increase opportunities</b> for this period. `
+            + `Would you like to proceed?<br>`
+            + `<i class="text-primary">Note: If you change your mind later, please contact us.</i>`,
+            'PROCEED', 'CANCEL');
 
-    addNewRule(serviceName, serviceTypeIds, adjustment) {
+        if (!res) return;
+        await useGlobalDialog().displayProgress('', 'Opting out of this Price Increase period...')
+
+        this.priceAdjustmentData = this.priceAdjustmentData.map(item => ({...item, confirmed: false}));
+        await this.savePriceAdjustmentRecord();
+        await http.post('cancelPriceAdjustmentRecord', {
+            priceAdjustmentRecordId: usePriceAdjustment().id,
+            franchiseeId: useFranchiseeStore().current.id,
+        })
+
+        await useGlobalDialog().close(2000, 'Complete');
+        useGlobalDialog().displayInfo('', 'Complete. You can now close this page.', true, [], true);
+    },
+
+    addNewRule(serviceName, serviceTypeIds, adjustment, conditions) {
         this.form.custrecord_1302_pricing_rules.push({
             serviceName,
             services: serviceTypeIds,

@@ -114,6 +114,13 @@ function formatDate(dateObj) {
                         </v-card>
                     </v-slide-x-transition>
 
+                    <v-spacer></v-spacer>
+
+                    <v-btn v-if="!showSearchBox && userStore.isFranchisee && !priceAdjustments.details.custrecord_1302_cancelled && priceAdjustments.priceAdjustmentData.length"
+                        variant="elevated" color="red" size="small" class="mr-2"
+                        @click="priceAdjustments.skipAllPriceAdjustments()">
+                        Skip all
+                    </v-btn>
                 </v-toolbar>
             </v-col>
         </v-row>

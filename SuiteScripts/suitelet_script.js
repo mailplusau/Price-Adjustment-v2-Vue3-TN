@@ -434,4 +434,32 @@ const postOperations = {
 
         _writeResponseJson(response, {priceAdjustmentRecordId: priceAdjustmentRecord.save({ignoreMandatoryFields: true})});
     }
+    },
+    'cancelPriceAdjustmentRecord' : function(response, {priceAdjustmentRecordId, franchiseeId}) {
+        const franchiseeRecord = NS_MODULES.record.load({type: 'partner', id: franchiseeId});
+        const franchiseeName = franchiseeRecord.getValue({fieldId: 'companyname'});
+        const priceAdjustmentRecord = NS_MODULES.search['lookupFields']({
+            type: 'customrecord_price_adjustment_franchisee', id: priceAdjustmentRecordId,
+            columns: 'custrecord_1302_master_record.custrecord_1301_effective_date'});
+
+        let effectiveDate = priceAdjustmentRecord['custrecord_1302_master_record.custrecord_1301_effective_date'];
+        effectiveDate = effectiveDate.substring(0, effectiveDate.indexOf(' '))
+
+        NS_MODULES.record['submitFields']({
+            type: 'customrecord_price_adjustment_franchisee', id: priceAdjustmentRecordId,
+            values: { custrecord_1302_cancelled: true, }
+        });
+
+        NS_MODULES.email.send({
+            author: 112209,
+            subject: `${franchiseeName} opted out of Price Increase`,
+            body: `Franchisee ${franchiseeName} has decided to opt out of this Price Increase period which has effective date on ${effectiveDate}`,
+            recipients: [
+                import.meta.env.VITE_NS_USER_1732844_EMAIL,
+            ],
+            isInternalOnly: true
+        })
+
+        _writeResponseJson(response, 'Record cancelled');
+    },
 };
