@@ -44,8 +44,9 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
                 })
                 .catch(err => {
                     console.log(err);
-                    window['NS_MODULES'] = _getClientModules()
                 });
+
+            window['NS_MODULES'] = _getClientModules()
         }
 
         return { pageInit };

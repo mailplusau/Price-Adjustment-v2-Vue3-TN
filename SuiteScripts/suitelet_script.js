@@ -6,8 +6,11 @@
  * @created 20/08/2024
  */
 
-import {VARS} from '@/utils/utils.mjs';
-import { franchisee as franchiseeFields, pricingRule as pricingRuleFields } from "netsuite-shared-modules";
+import { VARS } from "@/utils/utils.mjs";
+import {
+    franchisee as franchiseeFields,
+    pricingRule as pricingRuleFields,
+} from "netsuite-shared-modules";
 import { getFranchiseesByFilters, getPriceAdjustmentRulesByFilters, getCustomersByFilters, getInvoicesByFilters, getPriceAdjustmentOfFranchiseeByFilter, getServicesByFilters } from 'netsuite-shared-modules';
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
@@ -160,7 +163,11 @@ function _writeResponseJson(response, body) {
 
 const getOperations = {
     'getCurrentUserDetails' : function (response) {
-        let user = {role: NS_MODULES.runtime['getCurrentUser']().role, id: NS_MODULES.runtime['getCurrentUser']().id};
+        let user = {
+            role: NS_MODULES.runtime['getCurrentUser']().role,
+            id: NS_MODULES.runtime['getCurrentUser']().id,
+            name: NS_MODULES.runtime['getCurrentUser']().name,
+        };
         let salesRep = {};
 
         if (parseInt(user.role) === 1000) {
@@ -231,18 +238,8 @@ const getOperations = {
             ["type", "anyof", "CustInvc"],
             'AND', ["mainline", "is", "T"],
             'AND', ['entity', 'is', customerId],
+            'AND', ["trandate","within","monthsago2","daysago0"]
         ]))
-    },
-    'getEligibleInvoicesByFranchiseeId' : function (response, {franchiseeId}) {
-        _writeResponseJson(response, getInvoicesByFilters(NS_MODULES, [
-            ['type', 'is', 'CustInvc'],
-            'AND', ['customer.partner', 'is', franchiseeId],
-            'AND', ['customer.status', 'is', 13], // Signed (13)
-            'AND', ['mainline', 'is', true],
-            'AND', ['memorized', 'is', false],
-            'AND', [['trandate', 'within', 'oneyearbeforelast'],'OR',['trandate','within','monthsago6','daysago0']],
-            "AND", [["customer.custentity_date_of_last_price_increase", "isempty", ""],"OR",["customer.custentity_date_of_last_price_increase", "onorbefore", "lastyeartodate"]]
-        ], ['trandate', 'customer.internalid', 'customer.entityid', 'customer.companyname'], true))
     },
     'getEligibleInvoicesByFranchiseeIdWithinPeriods' : function (response, {franchiseeId, start, end}) {
         _writeResponseJson(response, getInvoicesByFilters(NS_MODULES, [
@@ -252,7 +249,8 @@ const getOperations = {
             'AND', ['mainline', 'is', true],
             'AND', ['memorized', 'is', false],
             'AND', ['trandate','within', start, end],
-        ], ['trandate', 'customer.internalid', 'customer.entityid', 'customer.companyname'], true))
+            "AND", ["customer.custentity_special_customer_type","noneof","3","2","5","4","1"]
+        ], ['trandate', 'amount', 'customer.internalid', 'customer.entityid', 'customer.companyname', 'customer.custentity_date_of_last_price_increase'], true))
     },
     'getActiveServicesByCustomerId' : function (response, {customerId}) {
         _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
@@ -313,7 +311,7 @@ const getOperations = {
 
         _writeResponseJson(response, items);
     },
-    'getActiveServicesByFranchiseeId' : function (response, {franchiseeId}) {
+    'getActiveServicesByFranchiseeId' : function (response, {franchiseeId, dateOfLastPriceAdjustment}) {
         _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
             ['custrecord_service_franchisee', 'anyof', franchiseeId],
             'AND',
@@ -324,11 +322,12 @@ const getOperations = {
             ['custrecord_service_category', 'anyof', '1'],
             'AND',
             [
-                ["custrecord_service_customer.custentity_date_of_last_price_increase","isempty",""],
+                ["custrecord_service_customer.custentity_date_of_last_price_increase", "isempty", ""],
                 "OR",
-                ["custrecord_service_customer.custentity_date_of_last_price_increase","onorbefore","lastyeartodate"]
+                ["custrecord_service_customer.custentity_date_of_last_price_increase", "onorbefore", dateOfLastPriceAdjustment] // lastyeartodate
             ],
         ], [
+            'custrecord_service_ns_item',
             'custrecord_service_franchisee',
             'custrecord_service',
             'custrecord_service_category',
@@ -336,8 +335,11 @@ const getOperations = {
             'CUSTRECORD_SERVICE_CUSTOMER.companyname',
             'CUSTRECORD_SERVICE_CUSTOMER.entityid',
             'CUSTRECORD_SERVICE_CUSTOMER.internalid',
-            'CUSTRECORD_SERVICE_CUSTOMER.custentity_date_of_last_price_increase'
+            'CUSTRECORD_SERVICE_CUSTOMER.custentity_date_of_last_price_increase',
         ], true));
+    },
+    'getServicesByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getServicesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },
     'getPriceAdjustmentRuleById' : function(response, {priceAdjustmentRuleId}) {
         let priceAdjustmentRule = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: priceAdjustmentRuleId});
@@ -433,7 +435,6 @@ const postOperations = {
         }
 
         _writeResponseJson(response, {priceAdjustmentRecordId: priceAdjustmentRecord.save({ignoreMandatoryFields: true})});
-    }
     },
     'optOutOfPriceAdjustmentPeriod' : function(response, {priceAdjustmentRecordId, franchiseeId, optOutReason}) {
         const franchiseeRecord = NS_MODULES.record.load({type: 'partner', id: franchiseeId});
