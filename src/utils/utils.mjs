@@ -12,6 +12,17 @@ export const VARS = {
     pageTitle: 'Price Increase v2',
 }
 
+export const pricingRuleOperatorOptions = [
+    {title: 'equal to', value: '=', eval: (val, operand1) => val === operand1},
+    {title: 'different from', value: '!=', eval: (val, operand1) => val !== operand1},
+    {title: 'greater than', value: '>', eval: (val, operand1) => val > operand1},
+    {title: 'greater than or equal to', value: '>=', eval: (val, operand1) => val >= operand1},
+    {title: 'less than', value: '<', eval: (val, operand1) => val < operand1},
+    {title: 'less than or equal to', value: '<=', eval: (val, operand1) => val <= operand1},
+    {title: 'in between', value: '<>', eval: (val, operand1, operand2) => val >= operand1 && val <= operand2},
+    {title: 'outside of', value: '><', eval: (val, operand1, operand2) => val < operand1 || val > operand2}
+]
+
 export const isoStringRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z?$/;
 
 export const rules = {
@@ -112,26 +123,28 @@ export const debounce = (fn, delay, option = { leading: true, trailing: true}) =
     let isLeadingInvoked = false;
 
     return function (...args) {
-        const context = this;
+        return new Promise(resolve => {
+            const context = this;
 
-        // base condition
-        if (timeout) {
-            clearTimeout(timeout);
-        }
+            // base condition
+            if (timeout) {
+                clearTimeout(timeout);
+            }
 
-        // handle leading
-        if (option.leading && !timeout) {
-            fn.apply(context, args);
-            isLeadingInvoked = true;
-        } else isLeadingInvoked = false;
+            // handle leading
+            if (option.leading && !timeout) {
+                Promise.resolve(fn.apply(context, args)).then(resolve);
+                isLeadingInvoked = true;
+            } else isLeadingInvoked = false;
 
-        // handle trailing
-        timeout = setTimeout(() => {
-            if (option.trailing && !isLeadingInvoked)
-                fn.apply(context, args);
+            // handle trailing
+            timeout = setTimeout(() => {
+                if (option.trailing && !isLeadingInvoked)
+                    Promise.resolve(fn.apply(context, args)).then(resolve);
 
-            timeout = null;
-        }, delay);
+                timeout = null;
+            }, delay);
+        })
     }
 }
 
