@@ -12,6 +12,7 @@ import { usePriceAdjustment } from "@/stores/price-adjustment";
 import { usePricingRules } from "@/stores/pricing-rules";
 import { useUserStore } from "@/stores/user";
 import { useGlobalDialog } from "@/stores/global-dialog";
+import OptOutDialog from "@/views/price-adjustment/component/OptOutDialog.vue";
 
 const franchiseeStore = useFranchiseeStore();
 const userStore = useUserStore();
@@ -116,11 +117,7 @@ function formatDate(dateObj) {
 
                     <v-spacer></v-spacer>
 
-                    <v-btn v-if="!showSearchBox && userStore.isFranchisee && !priceAdjustments.details.custrecord_1302_cancelled && priceAdjustments.priceAdjustmentData.length"
-                        variant="elevated" color="red" size="small" class="mr-2"
-                        @click="priceAdjustments.skipAllPriceAdjustments()">
-                        Skip all
-                    </v-btn>
+                    <OptOutDialog v-if="!showSearchBox && userStore.isFranchisee && !priceAdjustments.details.custrecord_1302_opt_out_reason && priceAdjustments.priceAdjustmentData.length"/>
                 </v-toolbar>
             </v-col>
         </v-row>

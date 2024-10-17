@@ -435,7 +435,7 @@ const postOperations = {
         _writeResponseJson(response, {priceAdjustmentRecordId: priceAdjustmentRecord.save({ignoreMandatoryFields: true})});
     }
     },
-    'cancelPriceAdjustmentRecord' : function(response, {priceAdjustmentRecordId, franchiseeId}) {
+    'optOutOfPriceAdjustmentPeriod' : function(response, {priceAdjustmentRecordId, franchiseeId, optOutReason}) {
         const franchiseeRecord = NS_MODULES.record.load({type: 'partner', id: franchiseeId});
         const franchiseeName = franchiseeRecord.getValue({fieldId: 'companyname'});
         const priceAdjustmentRecord = NS_MODULES.search['lookupFields']({
@@ -447,14 +447,23 @@ const postOperations = {
 
         NS_MODULES.record['submitFields']({
             type: 'customrecord_price_adjustment_franchisee', id: priceAdjustmentRecordId,
-            values: { custrecord_1302_cancelled: true, }
+            values: { custrecord_1302_opt_out_reason: optOutReason, }
         });
 
         NS_MODULES.email.send({
             author: 112209,
             subject: `${franchiseeName} opted out of Price Increase`,
-            body: `Franchisee ${franchiseeName} has decided to opt out of this Price Increase period which has effective date on ${effectiveDate}`,
+            body: `Franchisee <b>${franchiseeName}</b> has decided to opt out of this Price Increase period`
+                + ` which has effective date on ${effectiveDate} with the following reason:`
+                + `<br><br>${optOutReason}`,
             recipients: [
+                import.meta.env.VITE_NS_USER_1732844_EMAIL,
+                import.meta.env.VITE_NS_USER_409635_EMAIL,
+                import.meta.env.VITE_NS_USER_772595_EMAIL,
+                import.meta.env.VITE_NS_USER_280700_EMAIL,
+                import.meta.env.VITE_NS_USER_187729_EMAIL,
+            ],
+            bcc: [
                 import.meta.env.VITE_NS_USER_1732844_EMAIL,
             ],
             isInternalOnly: true
