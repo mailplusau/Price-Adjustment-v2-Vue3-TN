@@ -48,7 +48,7 @@ const actions = {
             },
             {
                 title: 'Package: AMPO & PMPO Group',
-                value: serviceTypes.filter(item => /^(Package: AMPO & PMPO Group ?)(\d*)$/.test(item.title)).map(item => item.value),
+                value: serviceTypes.filter(item => /^(Package: AMPO & PMPO ?)(\d*)$/.test(item.title)).map(item => item.value),
             }
         )
         this.serviceTypes.sort((a, b) =>

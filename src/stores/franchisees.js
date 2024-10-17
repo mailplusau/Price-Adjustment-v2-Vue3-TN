@@ -2,8 +2,6 @@ import { defineStore } from 'pinia';
 import http from '@/utils/http.mjs';
 import {franchisee as franchiseeFields} from 'netsuite-shared-modules'
 import { useUserStore } from "@/stores/user";
-import { useCustomerStore } from "@/stores/customers";
-import { useServiceStore } from "@/stores/services";
 import { franchisees } from "@/utils/testData";
 import { usePriceAdjustment } from "@/stores/price-adjustment";
 
@@ -38,8 +36,6 @@ const actions = {
         this.current.id = franchiseeId;
         this.busy = true;
         await _fetchCurrentFranchisee(this);
-        await useCustomerStore().init();
-        await useServiceStore().init();
         await usePriceAdjustment().init();
         this.busy = false;
     }
