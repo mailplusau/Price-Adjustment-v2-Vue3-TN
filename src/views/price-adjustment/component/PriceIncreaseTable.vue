@@ -1,17 +1,24 @@
 <script setup>
 import { AgGridVue } from "ag-grid-vue3"; // Vue Data Grid Component
 import { computed, ref, shallowRef, watch } from "vue";
-import agButtonCell from '@/views/price-increase/component/agButtonCell.vue';
-import agFilterConfirmedColumn from '@/views/price-increase/component/agFilterConfirmedColumn.vue';
+import agButtonCell from '@/views/price-adjustment/component/agButtonCell.vue';
+import agFilterConfirmedColumn from '@/views/price-adjustment/component/agFilterConfirmedColumn.vue';
 import { debounce, formatPrice } from "@/utils/utils.mjs";
 import { usePriceAdjustment } from "@/stores/price-adjustment";
-import AgContextMenu from "@/views/price-increase/component/agContextMenu.vue";
+import AgContextMenu from "@/views/price-adjustment/component/agContextMenu.vue";
+import { usePricingRules } from "@/stores/pricing-rules";
+import { useUserStore } from "@/stores/user";
 
 const priceAdjustment = usePriceAdjustment();
+const pricingRules = usePricingRules();
+const userStore = useUserStore();
 
 const props = defineProps(['searchText']);
 const contextMenu = ref();
 const gridApi = shallowRef();
+const isTableModifiable = computed(() => {
+    return (userStore.isAdmin && !pricingRules.isSessionFinalised) || pricingRules.isSessionModifiable;
+})
 
 const rowData = computed({
     get() {
@@ -60,7 +67,9 @@ const columnDefs = [
         valueGetter: params => formatPrice(params.data['custrecord_service_price'])
     },
     {
-        field: 'adjustment', headerName: 'Adjustment', editable: true, filter: true, width: '120px', cellEditor: 'agNumberCellEditor',
+        field: 'adjustment', headerName: 'Adjustment', editable: true,
+        cellClass: ['ag-price-adjustment-col'],
+        filter: true, width: '120px', cellEditor: 'agNumberCellEditor',
         valueGetter: params => parseFloat(params.data.adjustment),
         valueSetter: params => {
             const previousValue = params.data.adjustment;
@@ -92,6 +101,14 @@ function handleCellMouseDown(e) {
 
 watch(() => props.searchText, val => {
     gridApi.value.setGridOption("quickFilterText", val,);
+})
+
+watch(isTableModifiable, val => {
+    let index = columnDefs.findIndex(item => item['headerName'] === 'Adjustment');
+    if (index >= 0 && gridApi.value) {
+        columnDefs[index].editable = val;
+        gridApi.value.setGridOption('columnDefs', columnDefs);
+    }
 })
 
 defineExpose({agButtonCell, agFilterConfirmedColumn})
@@ -128,6 +145,9 @@ defineExpose({agButtonCell, agFilterConfirmedColumn})
 .ag-right-pinned-col {
     box-shadow: #095c7b42 0px 0px 7px inset;
     //border-left: 2px solid #00314469 !important;
+}
+.ag-price-adjustment-col {
+    box-shadow: #7bff8c 0 0 40px inset;
 }
 
 @import '@/assets/ag-grid-theme-builder.css';

@@ -23,6 +23,8 @@ function doesFilterPass(params) {
 function isFilterActive() {
     return this.condition !== -1;
 }
+
+defineExpose({doesFilterPass, isFilterActive})
 </script>
 
 <template>
