@@ -75,7 +75,7 @@ const actions = {
         this.isError = false;
         this.hideButtons = true;
     },
-    displayInfo(title, message, persistent = false, buttons = [], maxWith = 500) {
+    displayInfo(title, message, persistent = false, buttons = [], hideButtons = false, maxWith = 500) {
         this.stopFakeProgress();
         this.maxWith = maxWith;
         this.title = title;
@@ -86,7 +86,7 @@ const actions = {
         this.persistent = persistent;
         this.isError = false;
         this.buttons = buttons;
-        this.hideButtons = false;
+        this.hideButtons = hideButtons;
     },
     displayProgress(title, message, progress = -1, showProgressPercent = false, maxWith = 500, timeStep = 500, interval = 100) {
         this.displayBusy(title, message, maxWith);
