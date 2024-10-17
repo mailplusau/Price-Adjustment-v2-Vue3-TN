@@ -1,6 +1,5 @@
 <script setup>
 import PriceIncreaseTable from "@/views/price-adjustment/component/PriceIncreaseTable.vue";
-// import PricingRuleDialog from "@/views/price-adjustment/component/PricingRuleDialog.vue";
 import PricingRuleDialog from "@/views/price-adjustment/rule-dialog/Main.vue";
 import PricingRuleDisplay from "@/views/price-adjustment/component/PricingRuleDisplay.vue";
 import InlineSelect from "@/components/shared/InlineSelect.vue";
