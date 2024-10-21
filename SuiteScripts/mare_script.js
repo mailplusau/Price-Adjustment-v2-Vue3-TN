@@ -167,8 +167,60 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 });
 
 const _ = {
-    sendPriceAdjustmentNotificationEmail(context, sessionId, customerId) {
-        NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `customerId: ${customerId}`)
+    sendPriceAdjustmentNotificationEmail(context, sessionId, customerId, adjustedServices) {
+        NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `customerId: ${customerId}`);
+
+        const customerInfo = NS_MODULES.search['lookupFields']({
+            type: 'customer', id: customerId,
+            columns: ['email', 'custentity_email_service']});
+
+        const pricingRuleRecord = NS_MODULES.search['lookupFields']({
+            type: 'customrecord_price_adjustment_rules', id: sessionId,
+            columns: 'custrecord_1301_effective_date'});
+
+        let effectiveDate = pricingRuleRecord['custrecord_1301_effective_date'];
+        effectiveDate = effectiveDate.substring(0, effectiveDate.indexOf(' '))
+
+        const addresses = getCustomerAddresses(NS_MODULES, customerId);
+        let billingAddress = addresses.filter(address => address['defaultbilling'])[0];
+        if (!billingAddress) billingAddress = addresses.filter(address => address['defaultshipping'])[0];
+        if (!billingAddress) billingAddress = addresses.filter(address => address['isresidential'])[0];
+        if (!billingAddress) billingAddress = addresses[0];
+        if (!billingAddress) throw `Customer ID ${customerId} has no valid address`;
+
+        let mergeResult = NS_MODULES.render['mergeEmail']({
+            templateId: 178,
+            entity: {type: 'customer', id: parseInt(customerId)}
+        });
+        let emailSubject = mergeResult.subject;
+        let emailBody = mergeResult.body;
+
+        let serviceTableHtml = '<table width="500" border="1"><thead><tr><th>SERVICE</th><th>AMOUNT OF INCREASE(Exc. GST)</th></tr></thead><tbody>';
+        serviceTableHtml += adjustedServices.map(service => `<tr><th>${service['serviceName']}</th><th>${formatPrice(service['adjustment'])}</th></tr>`).join('');
+        serviceTableHtml += '</tbody></table>';
+
+        emailBody = emailBody.replace(/&{serviceTable}/gi, serviceTableHtml);
+        emailBody = emailBody.replace(/&{headerDate}/gi, this.getTodayDate());
+        emailBody = emailBody.replace(/&{addrUnit}/gi, billingAddress['addr1']);
+        emailBody = emailBody.replace(/&{addrStreet}/gi, billingAddress['addr2']);
+        emailBody = emailBody.replace(/&{addrCity}/gi, billingAddress['city']);
+        emailBody = emailBody.replace(/&{addrState}/gi, billingAddress['state']);
+        emailBody = emailBody.replace(/&{addrPostcode}/gi, billingAddress['zip']);
+        emailBody = emailBody.replace(/&{dateEffective}/gi, effectiveDate);
+
+        NS_MODULES.email.send({
+            author: 35031, // accounts@mailplus.com.au
+            subject: emailSubject,
+            body: emailBody,
+            recipients: [
+                customerInfo['email'],
+                customerInfo['custentity_email_service']
+            ],
+            relatedRecords: { 'entityId': customerId },
+            isInternalOnly: true
+        })
+
+        NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `notice sent to ${customerInfo['email']} and ${customerInfo['custentity_email_service']}`)
     },
     processPriceAdjustment(context, sessionId, customerId, franchiseeId, adjustedServices = []) {
         // ON Effective date:
