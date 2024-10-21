@@ -3,7 +3,7 @@ import http from '@/utils/http.mjs';
 import { pricingRule } from "netsuite-shared-modules";
 import { useGlobalDialog } from "@/stores/global-dialog";
 import { isoStringRegex } from "@/utils/utils.mjs";
-import { addDays, set } from 'date-fns';
+import { addDays, subDays, set } from 'date-fns';
 import { useUserStore } from "@/stores/user";
 
 const state = {
@@ -17,7 +17,6 @@ const state = {
         details: {...pricingRule},
         texts: {...pricingRule},
         form: {...pricingRule},
-        franchiseeData: [],
     },
 
     pricingRuleDialog: {
@@ -26,17 +25,21 @@ const state = {
 };
 
 const getters = {
-
+    isSessionOpen : state => state.currentSession.id ?
+        new Date() >= state.currentSession.details.custrecord_1301_opening_date && new Date() <= state.currentSession.details.custrecord_1301_effective_date : false,
+    isSessionModifiable : state => state.currentSession.id ?
+        new Date() >= state.currentSession.details.custrecord_1301_opening_date && new Date() <= set(state.currentSession.details.custrecord_1301_deadline, {hours: 23, minutes: 59, seconds: 59, milliseconds: 0}) : false,
+    isSessionFinalised : state => state.currentSession.id ? new Date() >= state.currentSession.details.custrecord_1301_effective_date : false,
 };
 
 const actions = {
     async init() {
-        this.currentSession.details.custrecord_1301_opening_date = set(addDays(new Date(), 1), {hours: 14, minutes: 0, seconds: 0, milliseconds: 0});
+        this.currentSession.details.custrecord_1301_opening_date = set(addDays(new Date(), 1), {hours: 0, minutes: 0, seconds: 0, milliseconds: 0});
 
         let data = await http.get('getAllPriceAdjustmentRules');
 
         // get the active record by looking at the missing closing date (i.e. pricing rule that is still active)
-        let index = Array.isArray(data) ? data.findIndex(item => !item['custrecord_1301_closing_date']) : -1;
+        let index = Array.isArray(data) ? data.findIndex(item => !item['custrecord_1301_completion_date']) : -1;
 
         if (index < 0) {
             if (!useUserStore().isAdmin) return;
@@ -78,11 +81,12 @@ const actions = {
         this.currentSession.form.custrecord_1301_pricing_rules = this.currentSession.form.custrecord_1301_pricing_rules ? JSON.parse(this.currentSession.form.custrecord_1301_pricing_rules) : [];
     },
 
-    addNewRule(serviceName, serviceTypeIds, adjustment) {
+    addNewRule(serviceName, serviceTypeIds, adjustment, conditions) {
         this.currentSession.form.custrecord_1301_pricing_rules.push({
             serviceName,
             services: serviceTypeIds,
             adjustment,
+            conditions: conditions ? JSON.parse(JSON.stringify(conditions)) : [],
         })
     },
     removeRule(index) {
@@ -95,7 +99,7 @@ const actions = {
             this.currentSession.form.custrecord_1301_deadline = null;
 
         if (!this.currentSession.form.custrecord_1301_effective_date || !this.currentSession.form.custrecord_1301_deadline ||
-            this.currentSession.form.custrecord_1301_effective_date <= this.currentSession.form.custrecord_1301_deadline)
+            subDays(this.currentSession.form.custrecord_1301_effective_date, 15) <= this.currentSession.form.custrecord_1301_deadline)
             this.currentSession.form.custrecord_1301_effective_date = null;
     },
 };

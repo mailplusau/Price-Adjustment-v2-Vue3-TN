@@ -249,6 +249,7 @@ const getOperations = {
             'AND', ['mainline', 'is', true],
             'AND', ['memorized', 'is', false],
             'AND', ['trandate','within', start, end],
+            "AND", ["amount","notequalto","0.00"],
             "AND", ["customer.custentity_special_customer_type","noneof","3","2","5","4","1"]
         ], ['trandate', 'amount', 'customer.internalid', 'customer.entityid', 'customer.companyname', 'customer.custentity_date_of_last_price_increase'], true))
     },

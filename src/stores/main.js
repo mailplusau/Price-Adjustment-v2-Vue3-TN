@@ -37,13 +37,17 @@ const actions = {
         useGlobalDialog().displayProgress('', 'Retrieving franchisee information...');
         await useFranchiseeStore().init();
 
-        if (!usePricingRules().currentSession.id && useUserStore().isFranchisee)
+        if ((!usePricingRules().currentSession.id || !usePricingRules().isSessionOpen) && !useUserStore().isAdmin)
             return useGlobalDialog().displayError('Error',
                 'Price Increase is not in progress. Please check back later.', 500, [], true);
 
         if (useUserStore().isFranchisee)
             useGlobalDialog().body = 'Retrieving your customers and their services...';
+
         await usePriceAdjustment().init();
+
+        if (usePriceAdjustment().details.custrecord_1302_opt_out_reason && !useUserStore().isAdmin)
+            return useGlobalDialog().displayInfo('Session closed', 'You have previously chose to skip this price increase period. If you changed your mind, please contact us.', true, [], true);
 
         useGlobalDialog().close().then();
     },

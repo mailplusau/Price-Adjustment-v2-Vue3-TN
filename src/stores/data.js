@@ -25,10 +25,13 @@ const actions = {
     },
     async getServiceTypes() {
         let data = await http.get('getServiceTypes');
+        const serviceIdsToExclude = [2, 5, 18, 31, 32, 33, 34, 35, 36, 37, 38, 39, 43, 44, 45, 46, 21, 28, 29, 41];
 
         let serviceTypes = Array.isArray(data) ? [...data] : [...testServiceTypes];
 
-        this.serviceTypes = serviceTypes.map(item => ({title: item.title, value: [item.value]}))
+        this.serviceTypes = serviceTypes
+            .filter(item => !serviceIdsToExclude.includes(parseInt(item.value)))
+            .map(item => ({title: item.title, value: [item.value]}))
         this.serviceTypes.push(
             {
                 title: 'AMPO Group',

@@ -1,30 +1,29 @@
-<script setup>
-import { ref } from "vue";
+<script>
+export default {
+    props: {
+        params: Object
+    },
+    data: () => ({
+        condition: -1
+    }),
+    methods: {
+        updateFilter() {
+            this.params.filterChangedCallback();
+        },
+        doesFilterPass(params) {
+            if (this.condition === 1)
+                return params.data.confirmed;
 
-const props = defineProps(['params']);
-const condition = ref(-1);
+            if (this.condition === 0)
+                return !params.data.confirmed;
 
-function updateFilter() {
-    props.params.filterChangedCallback();
+            return true;
+        },
+        isFilterActive() {
+            return this.condition !== -1;
+        }
+    }
 }
-
-// eslint-disable-next-line no-unused-vars
-function doesFilterPass(params) {
-    if (condition.value === 1)
-        return params.data.confirmed;
-
-    if (condition.value === 0)
-        return !params.data.confirmed;
-
-    return true;
-}
-
-// eslint-disable-next-line no-unused-vars
-function isFilterActive() {
-    return this.condition !== -1;
-}
-
-defineExpose({doesFilterPass, isFilterActive})
 </script>
 
 <template>

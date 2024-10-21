@@ -1,11 +1,13 @@
 import { defineStore } from "pinia";
 import { useFranchiseeStore } from "@/stores/franchisees";
 import http from "@/utils/http.mjs";
-import { simpleCompare } from "@/utils/utils.mjs";
-import { parse, subMonths } from "date-fns";
+import { pricingRuleOperatorOptions, simpleCompare } from "@/utils/utils.mjs";
+import { parse, subMonths, subYears, format } from "date-fns";
 import { usePricingRules } from "@/stores/pricing-rules";
-import { priceAdjustment } from "netsuite-shared-modules";
+import { priceAdjustment, readFromDataCells, writeToDataCells } from "netsuite-shared-modules";
 import { useGlobalDialog } from "@/stores/global-dialog";
+import { useUserStore } from "@/stores/user";
+import { priceAdjustmentTypes } from "@/utils/defaults.mjs";
 
 const state = {
     id: null,
@@ -37,9 +39,13 @@ const actions = {
             }
 
             this.resetForm();
+
+            if (!!this.details.custrecord_1302_opt_out_reason && !useUserStore().isAdmin) return;
+
             await _preparePriceAdjustmentData(this);
-        } else if (data.length) console.error('More than 1 record found') // TODO: Resolve this
-        else {
+        } else if (data.length) {
+            console.error("More than 1 record found"); // TODO: Resolve this
+        } else {
             this.resetForm();
             this.form.custrecord_1302_master_record = usePricingRules().currentSession.id;
             this.form.custrecord_1302_franchisee = useFranchiseeStore().current.id;
@@ -63,12 +69,15 @@ const actions = {
         }
     },
     async createPriceAdjustmentRecord() {
-        _writeToDataCells(this.form, this.priceAdjustmentData);
+        writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
 
         const priceAdjustmentData =  JSON.parse(JSON.stringify(this.form));
         priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
 
         await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentData});
+    },
+    async refreshPriceAdjustmentRecord() {
+       await _preparePriceAdjustmentData(this, false);
     },
     async savePriceAdjustmentRecord(applyPricingRules = false) {
         this.savingData = true;
@@ -88,19 +97,9 @@ const actions = {
             useGlobalDialog().displayProgress('', 'Saving Price Increase Record...');
         }
 
-        if (applyPricingRules) {
-            const priceAdjustmentData = await _getServicesOfFranchisee();
-            const pricingRules = JSON.parse(JSON.stringify(this.form.custrecord_1302_pricing_rules));
+        if (applyPricingRules) await _preparePriceAdjustmentData(this, true)
 
-            priceAdjustmentData.forEach(data => {
-                for (let rule of pricingRules)
-                    if (rule['services'].includes(data['custrecord_service'])) data['adjustment'] = rule['adjustment'];
-            })
-
-            this.priceAdjustmentData = [...priceAdjustmentData];
-        }
-
-        _writeToDataCells(this.form, this.priceAdjustmentData);
+        writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
 
         const priceAdjustmentData =  JSON.parse(JSON.stringify(this.form));
         priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
@@ -113,25 +112,20 @@ const actions = {
         this.priceAdjustmentData = this.priceAdjustmentData.map(item => ({...item, confirmed: true}));
         await this.savePriceAdjustmentRecord();
     },
-    async skipAllPriceAdjustments() {
-        const res = await useGlobalDialog().displayConfirmation('',
-            `You are about to <b class="text-red">skip all price increase opportunities</b> for this period. `
-            + `Would you like to proceed?<br>`
-            + `<i class="text-primary">Note: If you change your mind later, please contact us.</i>`,
-            'PROCEED', 'CANCEL');
-
-        if (!res) return;
+    async optOutOfPriceAdjustments(optOutReason) {
         await useGlobalDialog().displayProgress('', 'Opting out of this Price Increase period...')
 
         this.priceAdjustmentData = this.priceAdjustmentData.map(item => ({...item, confirmed: false}));
         await this.savePriceAdjustmentRecord();
-        await http.post('cancelPriceAdjustmentRecord', {
+        await http.post('optOutOfPriceAdjustmentPeriod', {
             priceAdjustmentRecordId: usePriceAdjustment().id,
             franchiseeId: useFranchiseeStore().current.id,
+            optOutReason
         })
 
+        this.priceAdjustmentData = [];
         await useGlobalDialog().close(2000, 'Complete');
-        useGlobalDialog().displayInfo('', 'Complete. You can now close this page.', true, [], true);
+        useGlobalDialog().displayInfo('', 'You have opted out of this period for Price Increase. You can now close this page.', true, [], true);
     },
 
     addNewRule(serviceName, serviceTypeIds, adjustment, conditions) {
@@ -139,6 +133,7 @@ const actions = {
             serviceName,
             services: serviceTypeIds,
             adjustment,
+            conditions: conditions ? JSON.parse(JSON.stringify(conditions)) : [],
         })
     },
     removeRule(index) {
@@ -149,6 +144,14 @@ const actions = {
         this.form = JSON.parse(JSON.stringify(this.details));
         this.form.custrecord_1302_pricing_rules = this.form.custrecord_1302_pricing_rules ? JSON.parse(this.form.custrecord_1302_pricing_rules) : [];
     },
+
+    async sendTestNotificationEmail() {
+        if (!usePricingRules().currentSession.id) return;
+
+        useGlobalDialog().displayProgress('', 'Sending test notification email...');
+        await http.post('sendTestNotificationEmail', {sessionId: usePricingRules().currentSession.id});
+        await useGlobalDialog().close(500, 'Complete!');
+    }
 }
 
 async function _getServicesOfFranchisee() {
@@ -161,11 +164,16 @@ async function _getServicesOfFranchisee() {
     let lastCustomerId = '';
     let count = -1;
     const periods = [
-        ['monthsago6', 'daysago0'],
-        ['monthsago18', 'monthsago12'],
-        ['monthsago24', 'monthsago18'],
-        ['monthsago30', 'monthsago24'],
-        ['monthsago36', 'monthsago30'],
+        ['monthsago3', 'daysago0'],
+        ['monthsago6', 'monthsago3'],
+        ['monthsago15', 'monthsago12'],
+        ['monthsago18', 'monthsago15'],
+        ['monthsago21', 'monthsago18'],
+        ['monthsago24', 'monthsago21'],
+        ['monthsago27', 'monthsago24'],
+        ['monthsago30', 'monthsago27'],
+        ['monthsago33', 'monthsago30'],
+        ['monthsago36', 'monthsago33'],
     ]
 
     await Promise.allSettled([
@@ -219,48 +227,47 @@ async function _getServicesOfFranchisee() {
     }).filter(service => !!service);
 }
 
-async function _preparePriceAdjustmentData(ctx) {
-    const oldAdjustmentData = _readFromDataCells(ctx.details) || [];
+async function _preparePriceAdjustmentData(ctx, ignoreOldAdjustmentData = false) {
+    const oldAdjustmentData = ignoreOldAdjustmentData ? [] : (readFromDataCells(ctx.details, 'custrecord_1302_data_') || []);
     const priceAdjustmentData = await _getServicesOfFranchisee();
+    const pricingRules = JSON.parse(JSON.stringify(ctx.form.custrecord_1302_pricing_rules));
+    const calculateAdjustment = (rule, servicePrice) => {
+        if (rule['adjustmentType'] === priceAdjustmentTypes.AMOUNT.name)
+            return rule['adjustment'];
+
+        if (rule['adjustmentType'] === priceAdjustmentTypes.PERCENT.name)
+            return servicePrice * rule['adjustment'] / 100;
+
+        if (rule['adjustmentType'] === priceAdjustmentTypes.FIXED.name)
+            return rule['adjustment'] - servicePrice;
+
+        return 0;
+    }
+
     priceAdjustmentData.forEach(data => {
-        for (let rule of ctx.form.custrecord_1302_pricing_rules)
-            if (rule['services'].includes(data['custrecord_service'])) data['adjustment'] = rule['adjustment'];
+        for (let rule of pricingRules) // apply pricing rule
+            if (rule['services'].includes(data['custrecord_service'])) {
+                let adjustment = 0;
+                if (rule['conditions'].length) {
+                    let [fieldName, operator, operand1, operand2] = rule['conditions'][0];
+                    if (fieldName !== '') console.log(fieldName);
+                    let operatorIndex = pricingRuleOperatorOptions.findIndex(item => item.value === operator)
+                    if (pricingRuleOperatorOptions[operatorIndex]?.['eval'](parseFloat(data['custrecord_service_price']), operand1, operand2))
+                        adjustment = calculateAdjustment(rule, parseFloat(data['custrecord_service_price']));
+                } else adjustment = calculateAdjustment(rule, parseFloat(data['custrecord_service_price']));
+
+                data["adjustment"] = adjustment;
+            }
 
         const oldIndex = oldAdjustmentData.findIndex(item => item['internalid'] === data['internalid']);
 
-        if (oldIndex >= 0) {
+        if (oldIndex >= 0) { // overwrite with old data if any
             data["adjustment"] = oldAdjustmentData[oldIndex]["adjustment"];
             data["confirmed"] = oldAdjustmentData[oldIndex]["confirmed"];
         }
     })
 
     ctx.priceAdjustmentData = [...priceAdjustmentData];
-}
-
-function _readFromDataCells(containerObject, dataCellPrefix = 'custrecord_1302_data_') {
-    try {
-        let availableFields = Object.keys(containerObject).filter(field => field.includes(dataCellPrefix)).sort();
-        let json = '';
-        for (let fieldId of availableFields) json += containerObject[fieldId];
-        return json ? JSON.parse(json) : null;
-    } catch (e) { return null; }
-}
-
-function _writeToDataCells(containerObject, cellData, dataCellPrefix = 'custrecord_1302_data_') {
-    let availableFields = Object.keys(containerObject).filter(field => field.includes(dataCellPrefix)).sort();
-    let dataArr = _splitStringByIndex(JSON.stringify(cellData), 999990); // limit of Long Text field is 1,000,000 characters, but we stop at 999,990
-
-    for (let [index, fieldId] of availableFields.entries())
-        containerObject[fieldId] = dataArr[index] || '';
-
-    if (dataArr.length > availableFields.length)
-        console.error(`Not enough data cells. Data requires ${dataArr.length} fields however only ${availableFields.length} available.`)
-}
-
-function _splitStringByIndex(str, index) { // split json string into segments of ${index} in length
-    if (!str) return [];
-
-    return [str.substring(0, index), ..._splitStringByIndex(str.substring(index), index)]
 }
 
 export const usePriceAdjustment = defineStore('price-adjustment', {

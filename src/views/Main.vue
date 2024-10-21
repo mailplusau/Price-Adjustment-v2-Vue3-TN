@@ -25,7 +25,7 @@ const searchText = ref('');
 
 onMounted(() => {
     document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.code === 'KeyF') {
+        if (e.ctrlKey && e.code === 'KeyF') { // hijack ctrl+F function of the browser
             e.preventDefault();
             showSearchBox.value = !showSearchBox.value;
             if (showSearchBox.value)
