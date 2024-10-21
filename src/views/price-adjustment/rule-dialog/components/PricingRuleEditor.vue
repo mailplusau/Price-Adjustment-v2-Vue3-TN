@@ -128,8 +128,8 @@ watch(editorDialog, val => {
             <span>&nbsp;</span>
             <InlineTextField v-model="pricingRule['adjustment']" :prefix="pricingRule['adjustmentType'] === 'percentage' ? '%' : 'A$'">
                 <template v-slot:activator="{ activatorProps }">
-                    <span v-if="pricingRule['adjustmentType'] === 'percentage'" v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>of {{ pricingRule['adjustment'] }}%</u></b></span>
-                    <span v-else v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>of {{ formatPrice(Math.abs(pricingRule['adjustment'])) }}</u></b></span>
+                    <span v-if="pricingRule['adjustmentType'] === 'percentage'" v-bind="activatorProps" class="text-purple-darken-2 cursor-pointer"><b><u>of {{ pricingRule['adjustment'] }}%</u></b></span>
+                    <span v-else v-bind="activatorProps" class="text-purple-darken-2 cursor-pointer"><b><u>of {{ formatPrice(Math.abs(pricingRule['adjustment'])) }}</u></b></span>
                 </template>
             </InlineTextField>
 
