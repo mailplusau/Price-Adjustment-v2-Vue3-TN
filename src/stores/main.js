@@ -11,6 +11,13 @@ const state = {
     pageTitle: VARS.pageTitle,
 
     testMode: false,
+    mainPage: {
+        current: 'price_adjustment',
+        options: {
+            PRICE_ADJ: 'price_adjustment',
+            FRANCHISEE_MGMT: 'franchisee_management',
+        }
+    },
     dev: {
         sidebar: false,
     },

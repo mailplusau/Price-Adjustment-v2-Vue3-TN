@@ -6,8 +6,14 @@ import { usePriceAdjustment } from "@/stores/price-adjustment";
 import PricingRuleRecordPanel from "@/views/price-adjustment/rule-dialog/components/PricingRuleRecordPanel.vue";
 import PriceAdjustmentRecordPanel from "@/views/price-adjustment/rule-dialog/components/PriceAdjustmentRecordPanel.vue";
 
-const userStore = useUserStore();
+const props = defineProps({
+    showFranchiseeRecord: {
+        default: true,
+        required: false,
+    }
+})
 
+const userStore = useUserStore();
 const priceAdjustmentRule = usePricingRules();
 const priceAdjustmentRecord = usePriceAdjustment();
 
@@ -41,7 +47,7 @@ watch(dialogOpen, () => {
             <v-tabs v-if="userStore.isAdmin" v-model="tab" bg-color="primary">
                 <v-tab value="one" v-show="false">Loading...</v-tab>
                 <v-tab value="two">Master Record</v-tab>
-                <v-tab value="three" v-show="priceAdjustmentRecord.id">Franchisee Record</v-tab>
+                <v-tab value="three" v-if="props.showFranchiseeRecord" v-show="priceAdjustmentRecord.id">Franchisee Record</v-tab>
             </v-tabs>
 
             <v-tabs-window v-model="tab">

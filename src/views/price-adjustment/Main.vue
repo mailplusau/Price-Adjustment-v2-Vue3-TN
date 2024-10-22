@@ -5,13 +5,14 @@ import PricingRuleDisplay from "@/views/price-adjustment/component/PricingRuleDi
 import InlineSelect from "@/components/shared/InlineSelect.vue";
 import ButtonWithConfirmationPopup from "@/components/shared/ButtonWithConfirmationPopup.vue";
 import { format} from 'date-fns';
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useFranchiseeStore } from "@/stores/franchisees";
 import { usePriceAdjustment } from "@/stores/price-adjustment";
 import { usePricingRules } from "@/stores/pricing-rules";
 import { useUserStore } from "@/stores/user";
 import { useGlobalDialog } from "@/stores/global-dialog";
 import OptOutDialog from "@/views/price-adjustment/component/OptOutDialog.vue";
+import NavigationMenu from "@/views/layout/NavigationMenu.vue";
 
 const franchiseeStore = useFranchiseeStore();
 const userStore = useUserStore();
@@ -23,13 +24,19 @@ const showSearchBox = ref(false);
 const gridSearchBox = ref();
 const searchText = ref('');
 
+const handleCtrlF = (e) => {
+    if (e.ctrlKey && e.code === 'KeyF') { // hijack ctrl+F function of the browser
+        e.preventDefault();
+        toggleSearchBox();
+    }
+}
+
 onMounted(() => {
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.code === 'KeyF') { // hijack ctrl+F function of the browser
-            e.preventDefault();
-            toggleSearchBox();
-        }
-    })
+    document.addEventListener('keydown', handleCtrlF)
+})
+
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', handleCtrlF);
 })
 
 const hasUnconfirmedPriceAdjustment = computed(() => !!priceAdjustments.priceAdjustmentData.filter(item => !item.confirmed).length);
@@ -61,7 +68,8 @@ function toggleSearchBox() {
         <v-row class="flex-grow-0" no-gutters>
             <v-col cols="12" class="shrink">
                 <v-toolbar color="primary" flat density="compact">
-                    <span class="ml-4 mr-1">Price Adjustment</span>
+                    <NavigationMenu v-if="userStore.isAdmin" />
+                    <span :class="userStore.isAdmin ? 'mr-1' : 'ml-4 mr-1'">Price Adjustment</span>
 
                     <v-divider vertical class="ml-4"></v-divider>
 
