@@ -8,6 +8,7 @@ import { priceAdjustment, readFromDataCells, writeToDataCells } from "netsuite-s
 import { useGlobalDialog } from "@/stores/global-dialog";
 import { useUserStore } from "@/stores/user";
 import { priceAdjustmentTypes } from "@/utils/defaults.mjs";
+import { utils, writeFile } from "xlsx";
 
 const state = {
     id: null,
@@ -151,6 +152,33 @@ const actions = {
         useGlobalDialog().displayProgress('', 'Sending test notification email...');
         await http.post('sendTestNotificationEmail', {sessionId: usePricingRules().currentSession.id});
         await useGlobalDialog().close(500, 'Complete!');
+    },
+
+    async exportDataToSpreadsheet() {
+        useGlobalDialog().displayProgress('', 'Generating Spreadsheet...');
+
+        const excelRows = this.priceAdjustmentData.map(item => ({
+            internalId: item['CUSTRECORD_SERVICE_CUSTOMER.internalid'],
+            entityId: item['CUSTRECORD_SERVICE_CUSTOMER.entityid'],
+            customer: item['CUSTRECORD_SERVICE_CUSTOMER.companyname'],
+            franchisee: item['custrecord_service_franchisee_text'],
+            service: item['custrecord_service_text'],
+            servicePrice: parseFloat(item['custrecord_service_price']),
+            adjustment: parseFloat(item['adjustment'])
+        }))
+
+        const headers = ['Internal ID', 'Entity ID', 'Customer', 'Franchisee', 'Service', 'Service Price', 'Adjustment'];
+
+        const workbook = utils.book_new();
+        const worksheet = utils.json_to_sheet(excelRows);
+
+        utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+        utils.sheet_add_json(worksheet, excelRows, { origin: 'A2', skipHeader: true });
+        utils.book_append_sheet(workbook, worksheet, "Report");
+
+        writeFile(workbook, `${this.texts.custrecord_1302_franchisee}.xlsx`, { compression: true });
+
+        await useGlobalDialog().close(2000, 'Complete');
     }
 }
 

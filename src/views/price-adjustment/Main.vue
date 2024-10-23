@@ -128,6 +128,17 @@ function toggleSearchBox() {
 
                     <v-spacer></v-spacer>
 
+                    <ButtonWithConfirmationPopup v-if="!showSearchBox && userStore.isAdmin && priceAdjustments.priceAdjustmentData.length"
+                                                 tooltip="Export to spreadsheet"
+                                                 message="Exporting table to spreadsheet. Proceed?"
+                                                 @confirmed="priceAdjustments.exportDataToSpreadsheet()">
+                        <template v-slot:activator="{ activatorProps }">
+                            <v-btn v-bind="activatorProps" :variant="'elevated'" color="green" size="small" class="mr-2">
+                                Export
+                            </v-btn>
+                        </template>
+                    </ButtonWithConfirmationPopup>
+
                     <OptOutDialog v-if="!showSearchBox && userStore.isFranchisee && !priceAdjustments.details.custrecord_1302_opt_out_reason && priceAdjustments.priceAdjustmentData.length"/>
                 </v-toolbar>
             </v-col>

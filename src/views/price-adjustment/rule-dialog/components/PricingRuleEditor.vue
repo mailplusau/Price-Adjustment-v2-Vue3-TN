@@ -103,7 +103,7 @@ watch(editorDialog, val => {
 </script>
 
 <template>
-    <v-list class="bg-background">
+    <v-list class="bg-background" style="max-height: 55vh; overflow-y: scroll">
         <v-list-item>
             Pricing Rules:
         </v-list-item>
