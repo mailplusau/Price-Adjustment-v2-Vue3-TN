@@ -67,7 +67,7 @@ const columnDefs = [
         valueGetter: params => formatPrice(params.data['custrecord_service_price'])
     },
     {
-        field: 'adjustment', headerName: 'Adjustment', editable: true,
+        field: 'adjustment', headerName: 'Adjustment', editable: isTableModifiable.value,
         cellClass: ['ag-price-adjustment-col'],
         filter: true, width: '120px', cellEditor: 'agNumberCellEditor',
         valueGetter: params => parseFloat(params.data.adjustment),
@@ -107,6 +107,14 @@ watch(isTableModifiable, val => {
     let index = columnDefs.findIndex(item => item['headerName'] === 'Adjustment');
     if (index >= 0 && gridApi.value) {
         columnDefs[index].editable = val;
+        gridApi.value.setGridOption('columnDefs', columnDefs);
+    }
+})
+
+watch(gridApi, () => {
+    let index = columnDefs.findIndex(item => item['headerName'] === 'Adjustment');
+    if (index >= 0 && gridApi.value) {
+        columnDefs[index].editable = isTableModifiable.value;
         gridApi.value.setGridOption('columnDefs', columnDefs);
     }
 })

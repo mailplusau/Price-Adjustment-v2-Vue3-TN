@@ -1,7 +1,9 @@
 <script setup>
 import {ref} from 'vue';
 import { usePriceAdjustment } from "@/stores/price-adjustment";
+import { usePricingRules } from "@/stores/pricing-rules";
 
+const priceAdjustmentRule = usePricingRules();
 const priceAdjustmentRecord = usePriceAdjustment();
 
 const optOutReason = ref('');
@@ -22,7 +24,7 @@ async function proceed() {
 <template>
     <v-dialog v-model="dialogOpen" width="550">
         <template v-slot:activator="{ props: activatorProps }">
-            <v-btn variant="elevated" color="red" size="small" class="mr-2" v-bind="activatorProps">
+            <v-btn variant="elevated" color="red" size="small" class="mr-2" v-bind="activatorProps" :disabled="!priceAdjustmentRule.canFranchiseeMakeChanges">
                 opt out
             </v-btn>
         </template>

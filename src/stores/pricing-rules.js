@@ -30,6 +30,8 @@ const getters = {
     isSessionModifiable : state => state.currentSession.id ?
         new Date() >= state.currentSession.details.custrecord_1301_opening_date && new Date() <= set(state.currentSession.details.custrecord_1301_deadline, {hours: 23, minutes: 59, seconds: 59, milliseconds: 0}) : false,
     isSessionFinalised : state => state.currentSession.id ? new Date() >= state.currentSession.details.custrecord_1301_effective_date : false,
+
+    canFranchiseeMakeChanges : () => (useUserStore().isAdmin && !this.isSessionFinalised) || this.isSessionModifiable
 };
 
 const actions = {

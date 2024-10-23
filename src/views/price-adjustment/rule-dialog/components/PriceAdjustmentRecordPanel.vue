@@ -97,12 +97,17 @@ async function proceed(applyRules = false) {
                 <v-btn @click="dialogOpen = false">cancel</v-btn>
             </v-col>
 
-            <v-col cols="auto">
-                <v-btn color="primary" @click="proceed()">Save</v-btn>
-            </v-col>
+            <template v-if="priceAdjustmentRule.canFranchiseeMakeChanges">
+                <v-col cols="auto">
+                    <v-btn color="primary" @click="proceed()">Save</v-btn>
+                </v-col>
 
-            <v-col cols="auto">
-                <v-btn color="green" @click="proceed(true)">Save & Apply Rules</v-btn>
+                <v-col cols="auto">
+                    <v-btn color="green" @click="proceed(true)">Save & Apply Rules</v-btn>
+                </v-col>
+            </template>
+            <v-col v-else cols="auto">
+                <v-btn color="primary" disabled>Further changes not possible</v-btn>
             </v-col>
         </v-form>
     </v-container>

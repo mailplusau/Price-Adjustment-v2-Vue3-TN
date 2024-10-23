@@ -108,7 +108,7 @@ watch(editorDialog, val => {
             Pricing Rules:
         </v-list-item>
 
-        <v-list-item v-for="(pricingRule, index) in servicePricingRules" :key="'rule' + index">
+        <v-list-item v-for="(pricingRule, index) in servicePricingRules" :key="'rule' + index" :disabled="!priceAdjustmentRule.canFranchiseeMakeChanges">
             <InlineSelect :items="serviceTypes" v-model="pricingRule['services']">
                 <template v-slot:activator="{ activatorProps }">
                     <span v-bind="activatorProps" class="text-primary cursor-pointer"><b><u>{{ getServiceTypeText(pricingRule['services']) }}</u></b></span>
@@ -182,17 +182,10 @@ watch(editorDialog, val => {
         </v-list-item>
 
         <v-list-item>
-<!--            <AddPricingRuleMenu>-->
-<!--                <template v-slot:activator="{ activatorProps }">-->
-<!--                    <v-btn size="small" v-bind="activatorProps" variant="outlined" color="primary">-->
-<!--                        <v-icon class="mr-1" size="small">mdi-plus</v-icon>Add New Rule-->
-<!--                    </v-btn>-->
-<!--                </template>-->
-<!--            </AddPricingRuleMenu>-->
-
             <v-dialog width="550" v-model="editorDialog">
                 <template v-slot:activator="{ props: activatorProps }">
-                    <v-btn size="small" v-bind="activatorProps" variant="outlined" color="primary">
+                    <v-btn size="small" v-bind="activatorProps" variant="outlined" color="primary"
+                           :disabled="!priceAdjustmentRule.canFranchiseeMakeChanges">
                         <v-icon class="mr-1" size="small">mdi-plus</v-icon>Add New Rule
                     </v-btn>
                 </template>
@@ -250,7 +243,9 @@ watch(editorDialog, val => {
                                              tooltip="Restore default pricing rules" message="Restore pricing rules to default?"
                                              @confirmed="restorePricingRulesToDefault()">
                     <template v-slot:activator="{ activatorProps }">
-                        <v-btn v-bind="activatorProps" size="small" variant="outlined">Restore default</v-btn>
+                        <v-btn v-bind="activatorProps" size="small" variant="outlined" :disabled="!priceAdjustmentRule.canFranchiseeMakeChanges">
+                            Restore default
+                        </v-btn>
                     </template>
                 </ButtonWithConfirmationPopup>
             </template>
