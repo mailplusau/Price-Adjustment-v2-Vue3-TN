@@ -250,8 +250,9 @@ const getOperations = {
             'AND', ['memorized', 'is', false],
             'AND', ['trandate','within', start, end],
             "AND", ["amount","notequalto","0.00"],
-            "AND", ["customer.custentity_special_customer_type","noneof","3","2","5","4","1"]
-        ], ['trandate', 'amount', 'customer.internalid', 'customer.entityid', 'customer.companyname', 'customer.custentity_date_of_last_price_increase'], true))
+            "AND", ["customer.custentity_special_customer_type","noneof","3","2","5","4","1"],
+        ], ['trandate', 'amount', 'customer.internalid', 'customer.entityid', 'customer.companyname',
+            'customer.custentity_date_of_last_price_increase'], true))
     },
     'getActiveServicesByCustomerId' : function (response, {customerId}) {
         _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
@@ -337,6 +338,7 @@ const getOperations = {
             'CUSTRECORD_SERVICE_CUSTOMER.entityid',
             'CUSTRECORD_SERVICE_CUSTOMER.internalid',
             'CUSTRECORD_SERVICE_CUSTOMER.custentity_date_of_last_price_increase',
+            'CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national'
         ], true));
     },
     'getServicesByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {

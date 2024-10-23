@@ -1,6 +1,6 @@
 <script setup>
 import { AgGridVue } from "ag-grid-vue3"; // Vue Data Grid Component
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import agButtonCell from '@/views/price-adjustment/component/agButtonCell.vue';
 import agFilterConfirmedColumn from '@/views/price-adjustment/component/agFilterConfirmedColumn.vue';
 import { debounce, formatPrice } from "@/utils/utils.mjs";
@@ -19,6 +19,24 @@ const gridApi = shallowRef();
 const isTableModifiable = computed(() => {
     return (userStore.isAdmin && !pricingRules.isSessionFinalised) || pricingRules.isSessionModifiable;
 })
+
+const filterSwitch = ref(0);
+
+function updateFilter() {
+    if (gridApi.value) gridApi.value.onFilterChanged();
+}
+
+function isExternalFilterPresent() {
+    return filterSwitch.value !== -1;
+}
+
+function doesExternalFilterPass(node) {
+    if (filterSwitch.value === 1)
+        return node.data['CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national'];
+    else if (filterSwitch.value === 0)
+        return !node.data['CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national'];
+    else return true;
+}
 
 const rowData = computed({
     get() {
@@ -119,10 +137,32 @@ watch(gridApi, () => {
     }
 })
 
+const showFilter = ref(false)
+
+nextTick(() => {
+    showFilter.value = true;
+    filterSwitch.value = userStore.isAdmin ? -1 : 0;
+    updateFilter();
+});
+
 defineExpose({agButtonCell, agFilterConfirmedColumn})
 </script>
 
 <template>
+    <Teleport defer to="#priceAdjustmentToolbarExt" v-if="userStore.isAdmin && showFilter && priceAdjustment.id">
+        <div class="national-account-filter text-subtitle-2">
+            Customer Filter:
+            <label>
+                <input type="radio" name="year" v-model="filterSwitch" v-on:change="updateFilter()" :value="-1"/> Show all
+            </label>
+            <label>
+                <input type="radio" name="year" v-model="filterSwitch" v-on:change="updateFilter()" :value="1"/> Show only national accounts
+            </label>
+            <label>
+                <input type="radio" name="year" v-model="filterSwitch" v-on:change="updateFilter()" :value="0"/> Hide all national accounts
+            </label>
+        </div>
+    </Teleport>
     <ag-grid-vue style="width: 100%; height: 100%;" ref="agGrid"
                  class="ag-theme-custom"
                  :stopEditingWhenCellsLoseFocus="true"
@@ -130,6 +170,8 @@ defineExpose({agButtonCell, agFilterConfirmedColumn})
                  :preventDefaultOnContextMenu="true"
                  :getRowClass="params => params.data.highlightClass"
                  :enableCellTextSelection="true"
+                 :isExternalFilterPresent="isExternalFilterPresent"
+                 :doesExternalFilterPass="doesExternalFilterPass"
                  @gridReady="onGridReady"
                  @cellMouseDown="handleCellMouseDown"
                  v-model="rowData">
@@ -156,6 +198,24 @@ defineExpose({agButtonCell, agFilterConfirmedColumn})
 }
 .ag-price-adjustment-col {
     box-shadow: #7bff8c 0 0 40px inset;
+}
+
+.national-account-filter {
+    display: inline;
+    width: 250px;
+    margin-left: 15px;
+}
+
+.national-account-filter > * {
+    margin: 8px;
+}
+
+.national-account-filter > div:first-child {
+    font-weight: bold;
+}
+
+.national-account-filter > label {
+    display: inline-block;
 }
 
 @import '@/assets/ag-grid-theme-builder.css';

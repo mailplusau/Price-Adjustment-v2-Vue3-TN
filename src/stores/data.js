@@ -31,7 +31,13 @@ const actions = {
 
         this.serviceTypes = serviceTypes
             .filter(item => !serviceIdsToExclude.includes(parseInt(item.value)))
-            .map(item => ({title: item.title, value: [item.value]}))
+            .map(item => ({title: item.title, value: [item.value]}));
+
+        this.serviceTypes.unshift({
+            title: 'All Services',
+            value: serviceTypes.map(item => item.value),
+        })
+
         this.serviceTypes.push(
             {
                 title: 'AMPO Group',

@@ -24,6 +24,7 @@ const actions = {
 
         this.role = parseInt(role);
         this.id = parseInt(id);
+        this.name = name;
         this.salesRep.id = salesRep.id ? parseInt(salesRep.id) : null;
         this.salesRep.name = salesRep.name || null;
     },

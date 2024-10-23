@@ -67,7 +67,7 @@ function toggleSearchBox() {
     <v-card class="grow d-flex flex-column flex-nowrap" style="height: 100%" fluid color="background">
         <v-row class="flex-grow-0" no-gutters>
             <v-col cols="12" class="shrink">
-                <v-toolbar color="primary" flat density="compact">
+                <v-toolbar color="primary" flat density="compact" >
                     <NavigationMenu v-if="userStore.isAdmin" />
                     <span :class="userStore.isAdmin ? 'mr-1' : 'ml-4 mr-1'">Price Adjustment</span>
 
@@ -116,7 +116,7 @@ function toggleSearchBox() {
                                                          message="Are you sure you want to confirm Price Adjustments for all Customers?"
                                                          @confirmed="priceAdjustments.confirmAllPriceAdjustments()">
                                 <template v-slot:activator="{ activatorProps }">
-                                    <v-btn v-bind="activatorProps" :disabled="!hasUnconfirmedPriceAdjustment"
+                                    <v-btn v-bind="activatorProps" :disabled="!hasUnconfirmedPriceAdjustment || !pricingRules.canFranchiseeMakeChanges"
                                            :variant="hasUnconfirmedPriceAdjustment ? 'elevated' : 'outlined'"
                                            color="green" size="small" class="ml-4">
                                         {{ hasUnconfirmedPriceAdjustment ? 'Confirm all' : 'All Confirmed' }}
@@ -140,6 +140,10 @@ function toggleSearchBox() {
                     </ButtonWithConfirmationPopup>
 
                     <OptOutDialog v-if="!showSearchBox && userStore.isFranchisee && !priceAdjustments.details.custrecord_1302_opt_out_reason && priceAdjustments.priceAdjustmentData.length"/>
+
+                    <template v-slot:extension v-if="userStore.isAdmin && priceAdjustments.id">
+                        <div id="priceAdjustmentToolbarExt"></div>
+                    </template>
                 </v-toolbar>
             </v-col>
         </v-row>
