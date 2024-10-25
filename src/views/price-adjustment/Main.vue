@@ -95,12 +95,12 @@ function toggleSearchBox() {
 
                                 <span class="ml-4 mr-1 text-subtitle-2 text-secondary">
                                     Deadline:
-                                    <b><i><u>{{ formatDate(pricingRules.currentSession.form.custrecord_1301_deadline) }}</u></i></b>
+                                    <b><i><u>{{ formatDate(pricingRules.currentSession.details.custrecord_1301_deadline) }}</u></i></b>
                                 </span>
 
                                 <span class="ml-4 mr-1 text-subtitle-2 text-secondary" v-if="userStore.isAdmin">
                                     Date Effective:
-                                    <b><i><u>{{ formatDate(pricingRules.currentSession.form.custrecord_1301_effective_date) }}</u></i></b>
+                                    <b><i><u>{{ formatDate(pricingRules.currentSession.details.custrecord_1301_effective_date) }}</u></i></b>
                                 </span>
                             </template>
 

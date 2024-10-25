@@ -367,6 +367,9 @@ const getOperations = {
             ['custrecord_1302_franchisee', 'is', franchiseeId]
         ]))
     },
+    'getCustomersByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getCustomersByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
     'getPriceAdjustmentOfFranchiseeByFilter' : function(response, {filters, additionalColumns, overwriteColumns}) {
         _writeResponseJson(response, getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },

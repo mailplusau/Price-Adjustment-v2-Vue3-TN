@@ -7,6 +7,8 @@ import { usePricingRules } from "@/stores/pricing-rules";
 import { useDataStore } from "@/stores/data";
 import { usePriceAdjustment } from "@/stores/price-adjustment";
 
+let masterClock;
+
 const state = {
     pageTitle: VARS.pageTitle,
 
@@ -31,6 +33,8 @@ const actions = {
     async init() {
         console.log('main store init')
         await _readUrlParams(this);
+        _startMasterClock(this);
+
         useDataStore().init().then();
         await useUserStore().init();
 
@@ -69,6 +73,14 @@ async function _readUrlParams(ctx) {
     });
 
     ctx.testMode = !!params['test'];
+}
+
+function _startMasterClock() {
+    if (masterClock) return;
+
+    masterClock = setInterval(() => {
+        usePricingRules().tick().then();
+    }, 1000);
 }
 
 export const useMainStore = defineStore('main', {

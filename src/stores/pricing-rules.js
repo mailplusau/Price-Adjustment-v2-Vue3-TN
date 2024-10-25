@@ -3,8 +3,10 @@ import http from '@/utils/http.mjs';
 import { pricingRule } from "netsuite-shared-modules";
 import { useGlobalDialog } from "@/stores/global-dialog";
 import { isoStringRegex } from "@/utils/utils.mjs";
-import { addDays, subDays, set } from 'date-fns';
+import { addDays, subDays, set, formatDistanceToNowStrict } from "date-fns";
 import { useUserStore } from "@/stores/user";
+
+let lastTick = 0;
 
 const state = {
     colorList: [
@@ -21,7 +23,10 @@ const state = {
 
     pricingRuleDialog: {
         open: false,
-    }
+    },
+
+    timeLeftUntilDeadline: 'Unknown',
+    timeLeftUntilEffectiveDate: 'Unknown'
 };
 
 const getters = {
@@ -31,11 +36,12 @@ const getters = {
         new Date() >= state.currentSession.details.custrecord_1301_opening_date && new Date() <= set(state.currentSession.details.custrecord_1301_deadline, {hours: 23, minutes: 59, seconds: 59, milliseconds: 0}) : false,
     isSessionFinalised : state => state.currentSession.id ? new Date() >= state.currentSession.details.custrecord_1301_effective_date : false,
 
-    canFranchiseeMakeChanges : () => (useUserStore().isAdmin && !this.isSessionFinalised) || this.isSessionModifiable
+    canFranchiseeMakeChanges() { return (useUserStore().isAdmin && !this.isSessionFinalised) || this.isSessionModifiable }
 };
 
 const actions = {
     async init() {
+        lastTick = (new Date()).getTime();
         this.currentSession.details.custrecord_1301_opening_date = set(addDays(new Date(), 1), {hours: 0, minutes: 0, seconds: 0, milliseconds: 0});
 
         let data = await http.get('getAllPriceAdjustmentRules');
@@ -104,14 +110,36 @@ const actions = {
             subDays(this.currentSession.form.custrecord_1301_effective_date, 15) <= this.currentSession.form.custrecord_1301_deadline)
             this.currentSession.form.custrecord_1301_effective_date = null;
     },
+    async tick() {
+        const now = (new Date()).getTime();
+
+        if (now - lastTick < 5*1000 || useUserStore().isAdmin) return; // 5 seconds tick
+
+        lastTick = now;
+
+        _getCurrentSession(this, true).then();
+
+        this.timeLeftUntilDeadline = this.currentSession.details.custrecord_1301_deadline
+            ? formatDistanceToNowStrict(this.currentSession.details.custrecord_1301_deadline, {addSuffix: true}) : 'Unknown';
+        this.timeLeftUntilEffectiveDate = this.currentSession.details.custrecord_1301_deadline
+            ? formatDistanceToNowStrict(this.currentSession.details.custrecord_1301_effective_date, {addSuffix: true}) : 'Unknown';
+    }
 };
 
-async function _getCurrentSession(ctx) {
+async function _getCurrentSession(ctx, updateTimeOnly = false) {
     if (!ctx.currentSession.id) return;
 
-    let data = await http.get('getPriceAdjustmentRuleById', {priceAdjustmentRuleId: ctx.currentSession.id});
+    const dateFields = [
+        'custrecord_1301_opening_date', 'custrecord_1301_deadline', 'custrecord_1301_effective_date',
+        'custrecord_1301_completion_date', 'custrecord_1301_notification_date'
+    ]
+
+    let data = await http.get('getPriceAdjustmentRuleById', {priceAdjustmentRuleId: ctx.currentSession.id}, {noErrorPopup: true});
+
+    if (!data?.['id']) return;
 
     for (let fieldId in ctx.currentSession.details) {
+        if (updateTimeOnly && !dateFields.includes(fieldId)) continue;
         ctx.currentSession.details[fieldId] = isoStringRegex.test(data[fieldId]) ? new Date(data[fieldId]) : data[fieldId];
         ctx.currentSession.texts[fieldId] = data[fieldId + '_text'];
     }

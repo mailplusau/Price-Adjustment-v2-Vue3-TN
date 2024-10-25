@@ -77,9 +77,6 @@ const actions = {
 
         await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentData});
     },
-    async refreshPriceAdjustmentRecord() {
-       await _preparePriceAdjustmentData(this, false);
-    },
     async savePriceAdjustmentRecord(applyPricingRules = false) {
         this.savingData = true;
 
@@ -278,7 +275,7 @@ async function _preparePriceAdjustmentData(ctx, ignoreOldAdjustmentData = false)
                 let adjustment = 0;
                 if (rule['conditions'].length) {
                     let [fieldName, operator, operand1, operand2] = rule['conditions'][0];
-                    if (fieldName !== '') console.log(fieldName);
+                    if (!fieldName) console.log('fieldName', fieldName);
                     let operatorIndex = pricingRuleOperatorOptions.findIndex(item => item.value === operator)
                     if (pricingRuleOperatorOptions[operatorIndex]?.['eval'](parseFloat(data['custrecord_service_price']), operand1, operand2))
                         adjustment = calculateAdjustment(rule, parseFloat(data['custrecord_service_price']));

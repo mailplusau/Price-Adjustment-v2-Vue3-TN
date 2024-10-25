@@ -141,8 +141,6 @@ const showFilter = ref(false)
 
 nextTick(() => {
     showFilter.value = true;
-    filterSwitch.value = userStore.isAdmin ? -1 : 0;
-    updateFilter();
 });
 
 defineExpose({agButtonCell, agFilterConfirmedColumn})
