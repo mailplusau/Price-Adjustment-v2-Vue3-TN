@@ -6,6 +6,7 @@ import agFilterSessionStatus from "@/views/franchisee-management/components/agFi
 import { computed, ref, shallowRef, watch } from "vue";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
 import AgFMTableContextMenu from "@/views/franchisee-management/components/agFMTableContextMenu.vue";
+import { getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
 
 const franchiseeManager = useFranchiseeManager();
 const props = defineProps(['searchText']);
@@ -44,7 +45,9 @@ const columnDefs = [
         headerName: 'Franchisee Name', editable: false, filter: true, width: '280px', field: 'companyName'.toLowerCase()
     },
     {
-        headerName: 'Session Status', editable: false, filter: 'agFilterSessionStatus', width: '200px', cellRenderer: 'agFranchiseeSessionStatus'
+        headerName: 'Session Status', editable: false, filter: 'agFilterSessionStatus', width: '250px', cellRenderer: 'agFranchiseeSessionStatus',
+        valueGetter: params => getSessionStatusFromAdjustmentRecord(params?.data?.adjustmentRecord),
+        comparator: (valueA, valueB) => `${valueA.order}`.localeCompare(`${valueB.order}`)
     },
     {
         headerName: '', editable: false, filter: false, width: '150px', resizable: false, cellRenderer: 'agControlCell'

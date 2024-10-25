@@ -1,3 +1,5 @@
+import { readFromDataCells } from "netsuite-shared-modules";
+
 const AUDollar = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'AUD',
@@ -178,6 +180,29 @@ export function formatBytes(bytes, decimals = 2) {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+}
+
+export function getSessionStatusFromAdjustmentRecord(adjustmentRecord) {
+    if (!adjustmentRecord) return {text: 'text-black', status: 'Not Started', order: 6};
+
+    if (adjustmentRecord['custrecord_1302_opt_out_reason']) return {text: 'text-red', status: `Opted Out`, order: 4}
+
+    const adjustmentData = readFromDataCells(adjustmentRecord, 'custrecord_1302_data_') || [];
+
+    if (adjustmentData.length) {
+        if (!adjustmentData.filter(item => !item['confirmed']).length)
+            return {text: 'text-primary', status: 'All Services Confirmed', order: 0}
+
+        if (adjustmentData.filter(item => item['confirmed']).length)
+            return {text: 'text-warning', status: `In Progress (${adjustmentData.filter(item => item['confirmed']).length} confirmed services)`, order: 1}
+
+        if (adjustmentData.filter(item => item['adjustment'] !== 0).length)
+            return {text: 'text-warning', status: 'In Progress (0 confirmed services)', order: 2}
+
+        return {text: 'text-warning', status: 'Initiated But No Progress', order: 3}
+    }
+
+    return {text: 'text-grey', status: 'No Eligible Customer', order: 5}
 }
 
 export const simpleCompare = (a, b) => `${a}`.localeCompare(`${b}`);

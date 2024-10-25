@@ -1,26 +1,28 @@
 <script>
+import { getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
+
 export default {
     props: {
         params: Object
     },
     data: () => ({
-        condition: -1
+        active: false,
+        condition: [0, 1, 2, 3, 4, 5, 6],
+        options: [
+
+        ]
     }),
     methods: {
         updateFilter() {
             this.params.filterChangedCallback();
         },
         doesFilterPass(params) {
-            if (this.condition === 1)
-                return params.data.confirmed;
+            const statusObj = getSessionStatusFromAdjustmentRecord(params?.data?.adjustmentRecord)
 
-            if (this.condition === 0)
-                return !params.data.confirmed;
-
-            return true;
+            return this.condition.includes(statusObj.order);
         },
         isFilterActive() {
-            return this.condition !== -1;
+            return true;
         }
     }
 }
@@ -28,22 +30,34 @@ export default {
 
 <template>
     <div class="year-filter">
-        <div>Select Confirmation Status</div>
+        <div>Select Session Status</div>
         <label>
-            <input type="radio" name="year" v-model="condition" v-on:change="updateFilter()" :value="-1"/> All
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="0"/> All services confirmed
         </label>
         <label>
-            <input type="radio" name="year" v-model="condition" v-on:change="updateFilter()" :value="1"/> Confirmed
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="1"/> In Progress
         </label>
         <label>
-            <input type="radio" name="year" v-model="condition" v-on:change="updateFilter()" :value="0"/> Not Confirmed
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="2"/> In Progress (0 confirmed)
+        </label>
+        <label>
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="3"/> Initiated But No Progress
+        </label>
+        <label>
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="4"/> Opted Out
+        </label>
+        <label>
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="5"/> No Eligible Customer
+        </label>
+        <label>
+            <input type="checkbox" name="statuses" v-model="condition" v-on:change="updateFilter()" :value="6"/> Not Started
         </label>
     </div>
 </template>
 
 <style scoped>
 .year-filter {
-    width: 250px;
+    width: 200px;
 }
 
 .year-filter > * {
