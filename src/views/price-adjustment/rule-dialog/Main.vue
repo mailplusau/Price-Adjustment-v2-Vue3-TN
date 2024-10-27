@@ -34,7 +34,7 @@ watch(dialogOpen, () => {
 </script>
 
 <template>
-    <v-dialog width="659" v-model="dialogOpen">
+    <v-dialog width="700" v-model="dialogOpen">
         <template v-slot:activator="{ props: activatorProps }">
             <v-btn variant="outlined" color="secondary" size="small" class="ml-4"
                    v-if="userStore.isAdmin || (userStore.isFranchisee && priceAdjustmentRule.currentSession.id)"

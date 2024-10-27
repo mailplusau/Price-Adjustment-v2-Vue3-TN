@@ -94,8 +94,7 @@ function restorePricingRulesToDefault() {
 }
 
 watch(editorDialog, val => {
-    if (val) {
-        console.log('reset')
+    if (val) { // reset
         selectedServiceTypes.value = selectedServiceTypes.value || serviceTypes.value[0];
         newRule.value = {...newRuleTemplate};
     }
@@ -115,8 +114,8 @@ watch(editorDialog, val => {
                 </template>
             </InlineSelect>
 
-            <span v-if="pricingRule['adjustment'] !== 0"> service price adjust </span>
-            <span v-else> service price remains unchanged:</span>
+            <span v-if="pricingRule['adjustment'] !== 0"> price adjust </span>
+            <span v-else> price remains unchanged:</span>
 
             <InlineSelect v-if="pricingRule['adjustment'] !== 0"
                           :items="adjustmentTypes" :model-value="getAdjustmentTypeByIndex(index)" @update:model-value="v => setAdjustmentTypeByIndex(index, v)">
