@@ -256,33 +256,11 @@ async function _preparePriceAdjustmentData(ctx, ignoreOldAdjustmentData = false)
     const oldAdjustmentData = ignoreOldAdjustmentData ? [] : (readFromDataCells(ctx.details, 'custrecord_1302_data_') || []);
     const priceAdjustmentData = await _getServicesOfFranchisee();
     const pricingRules = JSON.parse(JSON.stringify(ctx.form.custrecord_1302_pricing_rules));
-    const calculateAdjustment = (rule, servicePrice) => {
-        if (rule['adjustmentType'] === priceAdjustmentTypes.AMOUNT.name)
-            return rule['adjustment'];
-
-        if (rule['adjustmentType'] === priceAdjustmentTypes.PERCENT.name)
-            return servicePrice * rule['adjustment'] / 100;
-
-        if (rule['adjustmentType'] === priceAdjustmentTypes.FIXED.name)
-            return rule['adjustment'] - servicePrice;
-
-        return 0;
-    }
 
     priceAdjustmentData.forEach(data => {
         for (let rule of pricingRules) // apply pricing rule
-            if (rule['services'].includes(data['custrecord_service'])) {
-                let adjustment = 0;
-                if (rule['conditions'].length) {
-                    let [fieldName, operator, operand1, operand2] = rule['conditions'][0];
-                    if (!fieldName) console.log('fieldName', fieldName);
-                    let operatorIndex = pricingRuleOperatorOptions.findIndex(item => item.value === operator)
-                    if (pricingRuleOperatorOptions[operatorIndex]?.['eval'](parseFloat(data['custrecord_service_price']), operand1, operand2))
-                        adjustment = calculateAdjustment(rule, parseFloat(data['custrecord_service_price']));
-                } else adjustment = calculateAdjustment(rule, parseFloat(data['custrecord_service_price']));
-
-                data["adjustment"] = adjustment;
-            }
+            if (rule['services'].includes(data['custrecord_service']))
+                data["adjustment"] = _applyPricingRules(rule, data['custrecord_service_price']);
 
         const oldIndex = oldAdjustmentData.findIndex(item => item['internalid'] === data['internalid']);
 
@@ -290,9 +268,48 @@ async function _preparePriceAdjustmentData(ctx, ignoreOldAdjustmentData = false)
             data["adjustment"] = oldAdjustmentData[oldIndex]["adjustment"];
             data["confirmed"] = oldAdjustmentData[oldIndex]["confirmed"];
         }
+
+        _applySpecialRules(data);
     })
 
     ctx.priceAdjustmentData = [...priceAdjustmentData];
+}
+
+function _applySpecialRules(data) { // apply master rules for National Accounts customers and confirm them too
+    if (data['CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national']) {
+        const pricingRules = JSON.parse(JSON.stringify(usePricingRules().currentSession.details.custrecord_1301_pricing_rules));
+
+        data['confirmed'] = true;
+        for (let rule of pricingRules)
+            if (rule['services'].includes(data['custrecord_service']))
+                data['adjustment'] = _applyPricingRules(rule, data['custrecord_service_price']);
+    }
+}
+
+function _applyPricingRules(pricingRule, currentPrice) {
+    let adjustment = 0;
+    if (pricingRule['conditions'].length) {
+        let [fieldName, operator, operand1, operand2] = pricingRule['conditions'][0];
+        if (!fieldName) console.log('fieldName', fieldName);
+        let operatorIndex = pricingRuleOperatorOptions.findIndex(item => item.value === operator)
+        if (pricingRuleOperatorOptions[operatorIndex]?.['eval'](parseFloat(currentPrice), operand1, operand2))
+            adjustment = _calculateAdjustment(pricingRule, parseFloat(currentPrice));
+    } else adjustment = _calculateAdjustment(pricingRule, parseFloat(currentPrice));
+
+    return adjustment;
+}
+
+function _calculateAdjustment(rule, servicePrice) {
+    if (rule['adjustmentType'] === priceAdjustmentTypes.AMOUNT.name)
+        return rule['adjustment'];
+
+    if (rule['adjustmentType'] === priceAdjustmentTypes.PERCENT.name)
+        return servicePrice * rule['adjustment'] / 100;
+
+    if (rule['adjustmentType'] === priceAdjustmentTypes.FIXED.name)
+        return rule['adjustment'] - servicePrice;
+
+    return 0;
 }
 
 export const usePriceAdjustment = defineStore('price-adjustment', {
