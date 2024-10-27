@@ -4,18 +4,21 @@
  * @NApiVersion 2.1
  * @NScriptType MapReduceScript
  * @created 11/09/2024
+ *
+ * Should be scheduled to run at 2AM AEST every day.
  */
 
 import { writeXLSX, utils } from 'xlsx';
 import {
-    _readFromDataCells,
+    readFromDataCells,
     getPriceAdjustmentOfFranchiseeByFilter,
     getPriceAdjustmentRulesByFilters,
     getServicesByFilters,
     getCommRegsByFilters,
     getServiceChangesByFilters,
-    SERVICE_CHANGE_STATUS, COMM_REG_STATUS,
+    SERVICE_CHANGE_STATUS, COMM_REG_STATUS, getCustomerAddresses, getFranchiseesByFilters,
 } from "netsuite-shared-modules";
+import { formatPrice, getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
 
 let NS_MODULES = {};
 
@@ -30,8 +33,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
         const mapStageTasks = {};
 
         const priceAdjustmentSessionsToNotify = getPriceAdjustmentRulesByFilters(NS_MODULES, [
-            // ['internalid', 'is', 6],
-            ['custrecord_1301_effective_date', 'on', 'daysFromNow15'.toLowerCase()],
+            ['custrecord_1301_effective_date', 'on', 'daysFromNow14'.toLowerCase()],
             'AND',
             ['custrecord_1301_notification_date', 'isEmpty'.toLowerCase(), ''],
             'AND',
@@ -39,7 +41,6 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
         ]);
 
         const priceAdjustmentSessionsToProcess = getPriceAdjustmentRulesByFilters(NS_MODULES, [
-            // ['internalid', 'is', 6],
             ['custrecord_1301_effective_date', 'on', 'today'.toLowerCase()],
             'AND',
             ['custrecord_1301_notification_date', 'isNotEmpty'.toLowerCase(), ''],
@@ -49,17 +50,19 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 
         const prepareTask = (priceAdjustmentSession, taskIdPrefix) => {
             const priceAdjustmentRecords = getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, [
-                ['custrecord_1302_master_record', 'is', priceAdjustmentSession['internalid']]
+                ['custrecord_1302_master_record', 'is', priceAdjustmentSession['internalid']],
+                'AND',
+                ['custrecord_1302_opt_out_reason', 'isEmpty'.toLowerCase(), ''],
             ])
 
             priceAdjustmentRecords.forEach(priceAdjustmentRecord => {
-                const adjustmentData = _readFromDataCells(priceAdjustmentRecord, 'custrecord_1302_data_');
+                const adjustmentData = readFromDataCells(priceAdjustmentRecord, 'custrecord_1302_data_') || [];
 
                 const uniqueCustomerIds = [...(new Set(adjustmentData.map(item => parseInt(item['CUSTRECORD_SERVICE_CUSTOMER.internalid']))))];
 
                 for (let customerId of uniqueCustomerIds) {
                     const adjustedServices = adjustmentData
-                        .filter(item => parseInt(item['CUSTRECORD_SERVICE_CUSTOMER.internalid']) === customerId && item['adjustment'] !== 0 && item['confirmed']);
+                        .filter(item => parseInt(item['CUSTRECORD_SERVICE_CUSTOMER.internalid']) === customerId);
 
                     if (!adjustedServices.length) continue;
 
@@ -79,11 +82,13 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 
         priceAdjustmentSessionsToNotify.forEach(priceAdjustmentSession => { // with 100 franchisees, this could reach 1000 governance
             prepareTask(priceAdjustmentSession, 'CheckCustomerToNotify');
-        })
+        });
 
         priceAdjustmentSessionsToProcess.forEach(priceAdjustmentSession => {
             prepareTask(priceAdjustmentSession, 'CheckCustomerToProcess');
-        })
+        });
+
+        NS_MODULES.log.debug('getInputData', `today: ${_.getToday()} | mapStageTasks: ${JSON.stringify(mapStageTasks)}`);
 
         return mapStageTasks;
     }
@@ -103,7 +108,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
             ]);
             const activeServiceIds = activeServices.map(item => item['internalid']);
             const adjustedServices = value['adjustedServices']
-                .filter(item => activeServiceIds.includes(item['internalid']) && item['adjustment'] !== 0 && item['confirmed']);
+                .filter(item => activeServiceIds.includes(item['internalid']));
 
             context.write({
                 key: (context.key.includes('CheckCustomerToProcess') ? 'ProcessCustomer_' : 'NotifyCustomer_') + customerId,
@@ -111,7 +116,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
                     ...value,
                     adjustedServices: adjustedServices
                         .map(service => {
-                            // search for the service in array of active services and extra its frequency.
+                            // search for the service in array of active services and extract its frequency.
                             const index = activeServices.findIndex(item => item['internalid'] === service['internalid']);
                             const activeService = activeServices[index];
                             let frequency = activeService ?
@@ -125,36 +130,44 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
                                 serviceType: service['custrecord_service_text'],
                                 servicePrice: service['custrecord_service_price'],
                                 adjustment: service['adjustment'],
-                                frequency, // for use when creating search change records
+                                confirmed: service['confirmed'],
+                                frequency, // for use when creating service change records
                             }
                         })
                 }
             });
-        }
+        } else context.write({key: context.key, value: context.value});
     }
 
     function reduce(context) {
-        NS_MODULES.log.debug('reduce', `key: ${context.key} | values: ${context.values}`)
-        try {
-            const value = JSON.parse(context.values);
+        NS_MODULES.log.debug('reduce', `key: ${context.key} | values: ${context.values}`);
 
-            if (context.key.includes('NotifyCustomer')) { // TODO: send email here
-                _.sendPriceAdjustmentNotificationEmail(context, value['sessionId'], value['customerId']);
+        const value = JSON.parse(context.values);
 
-                context.write({ key: 'NotifiedCustomer_' + value['customerId'], value });
-            } else if  (context.key.includes('ProcessCustomer')) { // TODO: process price adjustment here
-                _.processPriceAdjustment(context, value['sessionId'], value['customerId'], value['franchiseeId'], value['adjustedServices']);
+        const judgementDay = 15;
+        const today = _.getToday();
+        const shouldUpdateFinancialItems = today.getDate() >= judgementDay;
+
+        if (context.key.includes('NotifyCustomer')) { // send email here
+            _.sendPriceAdjustmentNotificationEmail(value['sessionId'], value['customerId'], value['adjustedServices']);
+
+            context.write({ key: 'NotifiedCustomer_' + value['customerId'], value });
+        } else if  (context.key.includes('ProcessCustomer')) { // process price adjustment here
+            _.processPriceAdjustmentE2E(value['sessionId'], value['customerId'], value['franchiseeId'], value['adjustedServices']);
+
+            if (shouldUpdateFinancialItems && value['adjustedServices'].filter(item => item['adjustment'] !== 0 && item['confirmed']).length)
                 _.updateFinancialItemsOfCustomer(value['customerId']);
 
-                context.write({ key: 'ProcessedCustomer_' + value['customerId'], value });
-            }
-        } catch (e) { context.write({ key: 'FAILED_' + context.key, value: e }); }
+            context.write({ key: 'ProcessedCustomer_' + value['customerId'], value });
+        } else context.write({key: context.key, value: context.value});
     }
 
     function summarize(context) {
         _.handleErrorIfAny(context);
+
         _.generateReport(context);
-        _.processPriceAdjustmentSessions(context);
+        _.generateMondayReport();
+        _.finalisePriceAdjustmentProcess(context);
         NS_MODULES.log.debug('summarize', 'done')
     }
 
@@ -167,12 +180,16 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 });
 
 const _ = {
-    sendPriceAdjustmentNotificationEmail(context, sessionId, customerId, adjustedServices) {
+    sendPriceAdjustmentNotificationEmail(sessionId, customerId, adjustedServices) {
         NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `customerId: ${customerId}`);
+
+        adjustedServices = adjustedServices.filter(item => item['adjustment'] !== 0 && item['confirmed']);
+
+        if (!adjustedServices.length) return;
 
         const customerInfo = NS_MODULES.search['lookupFields']({
             type: 'customer', id: customerId,
-            columns: ['email', 'custentity_email_service']});
+            columns: ['email', 'custentity_email_service', 'custentity_accounts_cc_email']});
 
         const pricingRuleRecord = NS_MODULES.search['lookupFields']({
             type: 'customrecord_price_adjustment_rules', id: sessionId,
@@ -214,7 +231,8 @@ const _ = {
             body: emailBody,
             recipients: [
                 customerInfo['email'],
-                customerInfo['custentity_email_service']
+                customerInfo['custentity_email_service'],
+                customerInfo['custentity_accounts_cc_email'],
             ],
             relatedRecords: { 'entityId': customerId },
             isInternalOnly: true
@@ -222,16 +240,18 @@ const _ = {
 
         NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `notice sent to ${customerInfo['email']} and ${customerInfo['custentity_email_service']}`)
     },
-    processPriceAdjustment(context, sessionId, customerId, franchiseeId, adjustedServices = []) {
+    processPriceAdjustmentE2E(sessionId, customerId, franchiseeId, adjustedServices = []) {
         // ON Effective date:
         // - create commencement register, Sales Type: Price Increase, set it to Signed. Set previous Comm Regs to Changed
         // - (does it need T&C agreement???)
         // - create service changes, set them to Active
         // - apply changes to affected services, set previous service changes to Ceased
 
-        NS_MODULES.log.debug('processPriceAdjustment', `sessionId: ${sessionId} | franchiseeId: ${franchiseeId} | customerId: ${customerId} | adjustedServices: ${JSON.stringify(adjustedServices)}`);
+        NS_MODULES.log.debug('processPriceAdjustmentE2E', `sessionId: ${sessionId} | franchiseeId: ${franchiseeId} | customerId: ${customerId} | adjustedServices: ${JSON.stringify(adjustedServices)}`);
 
-        //if (sessionId) return;
+        adjustedServices = adjustedServices.filter(item => item['adjustment'] !== 0 && item['confirmed']);
+
+        if (!adjustedServices.length) return;
 
         // Find all Signed comm reg of the customer that the new comm reg is associated to apply Changed (7) status to them
         getCommRegsByFilters(NS_MODULES, [
@@ -326,8 +346,6 @@ const _ = {
     updateFinancialItemsOfCustomer(customerId) {
         NS_MODULES.log.debug('updateFinancialItemsOfCustomer', `customerId: ${customerId}`);
 
-        //if (customerId) return;
-
         const sublistId = 'itemPricing'.toLowerCase();
         const customerRecord = NS_MODULES.record.load({type: 'customer', id: customerId, isDynamic: true});
         const report = {
@@ -376,28 +394,110 @@ const _ = {
         customerRecord.save({ignoreMandatoryFields: true});
     },
 
+    generateMondayReport() {
+        if (_.getToday().getDay() !== 1) return;
+
+        const workbook = utils.book_new();
+        const headers = ['Franchisee ID', 'Franchisee Name', 'Session Status'];
+        const allFranchisees = getFranchiseesByFilters(NS_MODULES, [
+            ['isInactive'.toLowerCase(), 'is', false]
+        ]);
+
+        getPriceAdjustmentRulesByFilters(NS_MODULES, [
+            ['custrecord_1301_deadline', 'onOrBefore'.toLowerCase(), 'today'],
+            'AND',
+            ['custrecord_1301_opening_date', 'onOrAfter'.toLowerCase(), 'today'],
+        ]).forEach(priceAdjustmentSession => {
+            let effectiveDate = priceAdjustmentSession['custrecord_1301_effective_date'];
+            effectiveDate = effectiveDate.substring(0, effectiveDate.indexOf(' '));
+
+            const priceAdjustmentRecords = getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, [
+                ['custrecord_1302_master_record', 'is', priceAdjustmentSession['internalid']],
+            ])
+
+            const rows = [];
+
+            allFranchisees.forEach(franchisee => {
+                const excludeList = [0];
+                if (/^old /gi.test(franchisee['companyname'])) return;
+                if (/^test/gi.test(franchisee['companyname'])) return;
+                if (excludeList.includes(parseInt(franchisee['internalid']))) return;
+
+                const index = priceAdjustmentRecords.findIndex(item => item['custrecord_1302_franchisee'] === franchisee['internalid']);
+                rows.push({
+                    franchiseeId: franchisee['internalid'],
+                    franchiseeName: franchisee['companyname'],
+                    sessionStatus: getSessionStatusFromAdjustmentRecord(priceAdjustmentRecords[index]).status
+                })
+            })
+
+            const worksheet = utils.json_to_sheet(rows);
+
+            utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+            utils.sheet_add_json(worksheet, rows, { origin: 'A2', skipHeader: true });
+            utils.book_append_sheet(workbook, worksheet, `EDate: ${effectiveDate}`);
+        });
+
+        const xlsxFile = writeXLSX(workbook, { type: 'base64' });
+
+        let today = this.getToday();
+        let attachmentFile = NS_MODULES.file.create({
+            name: `weekly_price_increase_activity_report_${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}.xlsx`,
+            fileType: NS_MODULES.file.Type['EXCEL'],
+            contents: xlsxFile,
+        });
+
+        NS_MODULES.email.send({
+            author: 112209,
+            subject: 'Weekly Price Increase Activity Report',
+            body: 'Please see the attached spreadsheet for franchisees\' activities within this Price Increase Period as of today.',
+            recipients: [
+                import.meta.env.VITE_NS_USER_1732844_EMAIL,
+                import.meta.env.VITE_NS_USER_409635_EMAIL,
+                import.meta.env.VITE_NS_USER_772595_EMAIL,
+                import.meta.env.VITE_NS_USER_280700_EMAIL,
+                import.meta.env.VITE_NS_USER_187729_EMAIL,
+            ],
+            attachments: [attachmentFile],
+            isInternalOnly: true
+        });
+    },
     generateReport(summaryContext) {
-        NS_MODULES.log.debug('generateReport', `sending report`)
-        const headers = ['Entity ID', 'Customer ID', 'Customer Name', 'Franchisee ID', 'Franchisee Name', 'Service ID', 'Service Price', 'Adjustment', 'New Price'];
-        const rowItem = { customerEntityId: '', customerId: '', customerName: '', franchiseeId: '', franchiseeName: '',  serviceId: '', servicePrice: '', adjustment: '', newPrice: ''}
-        const rows = [];
+        const sessions = {};
+        const headers = ['Entity ID', 'Customer ID', 'Customer Name', 'Franchisee ID', 'Franchisee Name',
+            'Service ID', 'Service Name', 'Service Price', 'Adjustment', 'New Price', 'Status'];
 
         summaryContext.output.iterator().each(function(key, value) {
             if (`${key}`.includes('ProcessedCustomer')) {
-                const {customerId, franchiseeId, franchiseeName, adjustedServices, customerEntityId, customerName} = JSON.parse(`${value}`);
+                const {sessionId, customerId, franchiseeId, franchiseeName, adjustedServices, entityId, customerName} = JSON.parse(`${value}`);
+
+                if (!sessions[sessionId]) {
+                    const priceAdjustmentSession = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: sessionId});
+                    let effectiveDate = priceAdjustmentSession.getText({fieldId: 'custrecord_1301_effective_date'});
+                    sessions[sessionId]['effectiveDate'] = effectiveDate.substring(0, effectiveDate.indexOf(' '));
+                    sessions[sessionId]['rows'] = [];
+                }
 
                 for (let service of adjustedServices) {
-                    rows.push({
-                        ...rowItem,
+                    const conditionSwitch = (service['adjustment'] !== 0 ? 1 : 0) + (service['confirmed'] ? 10 : 0);
+                    const lookupTable = {
+                        0: 'Not confirmed',
+                        1: 'Adjusted but not confirmed',
+                        11: 'Confirmed and applied',
+                        10: 'Confirmed without adjustment'
+                    }
 
-                        customerEntityId,
+                    sessions[sessionId]['rows'].push({
+                        entityId,
                         customerName,
                         customerId, franchiseeId,
                         franchiseeName,
                         serviceId: service['serviceId'],
+                        serviceName: service['serviceName'],
                         servicePrice: parseFloat(service['servicePrice']),
                         adjustment: parseFloat(service['adjustment']),
-                        newPrice: parseFloat(service['servicePrice']) + parseFloat(service['adjustment'])
+                        newPrice: parseFloat(service['servicePrice']) + parseFloat(service['adjustment']),
+                        status: lookupTable[conditionSwitch],
                     })
                 }
             }
@@ -405,31 +505,45 @@ const _ = {
             return true;
         });
 
-        const workbook = utils.book_new();
-        const worksheet = utils.json_to_sheet(rows);
+        if (!Object.keys(sessions).length) return; // cancel this if there are nothing to report
 
-        utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
-        utils.sheet_add_json(worksheet, rows, { origin: 'A2', skipHeader: true });
-        utils.book_append_sheet(workbook, worksheet, "Dates");
+        NS_MODULES.log.debug('generateReport', `sending report`);
+
+        const workbook = utils.book_new();
+
+        for (let sessionId of Object.keys(sessions)) {
+            const worksheet = utils.json_to_sheet(sessions[sessionId]['rows']);
+
+            utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+            utils.sheet_add_json(worksheet, sessions[sessionId]['rows'], { origin: 'A2', skipHeader: true });
+            utils.book_append_sheet(workbook, worksheet, `${sessions[sessionId]['effectiveDate']} Price Increase`);
+        }
 
         const xlsxFile = writeXLSX(workbook, { type: 'base64' });
 
+        let today = this.getToday();
         let attachmentFile = NS_MODULES.file.create({
-            name: 'price_increase_report.xlsx',
+            name: `price_increase_report_${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}.xlsx`,
             fileType: NS_MODULES.file.Type['EXCEL'],
             contents: xlsxFile,
         });
 
         NS_MODULES.email.send({
             author: 112209,
-            subject: 'Price Increase Report',
-            body: 'Please see attachemnt',
-            recipients: ['tim.nguyen@mailplus.com.au'],
+            subject: `Final Price Increase Report for ${this.getTodayDate()}`,
+            body: `Please see the attached spreadsheet for customers and franchisee affected by this Price Increase Period (effective date ${this.getTodayDate()})`,
+            recipients: [
+                import.meta.env.VITE_NS_USER_1732844_EMAIL,
+                import.meta.env.VITE_NS_USER_409635_EMAIL,
+                import.meta.env.VITE_NS_USER_772595_EMAIL,
+                import.meta.env.VITE_NS_USER_280700_EMAIL,
+                import.meta.env.VITE_NS_USER_187729_EMAIL,
+            ],
             attachments: [attachmentFile],
             isInternalOnly: true
         });
     },
-    processPriceAdjustmentSessions(summaryContext) {
+    finalisePriceAdjustmentProcess(summaryContext) {
         const processedSessionIds = [], notifiedSessionIds = [];
         summaryContext.output.iterator().each(function(key, value) {
             const { sessionId } = JSON.parse(`${value}`);
@@ -441,11 +555,21 @@ const _ = {
         const uniqueProcessedSessionIds = [...(new Set(processedSessionIds))];
         const uniqueNotifiedSessionIds = [...(new Set(notifiedSessionIds))]
 
-        for (let uniqueProcessedSessionId of uniqueProcessedSessionIds)
-            NS_MODULES.log.debug('processPriceAdjustmentSessions', `Session #${uniqueProcessedSessionId} was processed.`)
+        for (let uniqueProcessedSessionId of uniqueProcessedSessionIds) {
+            NS_MODULES.record['submitFields']({
+                type: 'customrecord_price_adjustment_rules', id: uniqueProcessedSessionId,
+                values: { custrecord_1301_completion_date: new Date(), }
+            })
+            NS_MODULES.log.debug("finalisePriceAdjustmentProcess", `Session #${uniqueProcessedSessionId} was processed.`);
+        }
 
-        for (let uniqueNotifiedSessionId of uniqueNotifiedSessionIds)
-            NS_MODULES.log.debug('processPriceAdjustmentSessions', `Session #${uniqueNotifiedSessionId} was notified.`)
+        for (let uniqueNotifiedSessionId of uniqueNotifiedSessionIds) {
+            NS_MODULES.record['submitFields']({
+                type: 'customrecord_price_adjustment_rules', id: uniqueNotifiedSessionId,
+                values: { custrecord_1301_notification_date: new Date(), }
+            })
+            NS_MODULES.log.debug("finalisePriceAdjustmentProcess", `Session #${uniqueNotifiedSessionId} was notified.`);
+        }
     },
     handleErrorIfAny(summary) {
         let inputSummary = summary['inputSummary'];
@@ -471,8 +595,18 @@ const _ = {
             throw `Non-date object is given: ${dateTimeObject}`;
 
         let date = new Date(dateTimeObject.toISOString());
-        date.setTime(date.getTime() + 11*60*60*1000); // forward 12 hours (AEST is about +10 or +11 UTC)
+        date.setTime(date.getTime() + 12*60*60*1000); // forward 12 hours (AEST is about +10 or +11 UTC)
 
         return new Date(date.toISOString().replace('Z', ''));
-    }
+    },
+    getTodayDate() {
+        let today = this.getToday();
+        return `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()}`
+    },
+    getToday() {
+        let today = new Date();
+        today.setTime(today.getTime() + 18*60*60*1000); // forward 18 hours (AEST is about +10 or +11 UTC then add in 7 hours for US timezone)
+
+        return today;
+    },
 }
