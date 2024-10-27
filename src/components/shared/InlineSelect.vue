@@ -1,5 +1,6 @@
 <script setup>
 import { ref, defineModel, watch, nextTick, computed } from "vue";
+import { checkSubset } from "@/utils/utils.mjs";
 const model = defineModel({
     required: true,
 });
@@ -48,13 +49,15 @@ function handleSelection() {
 
 watch(menuOpen, (val) => {
     if (val) {
-        inputValue.value = model.value;
+        let index = props.items.findIndex(item => checkSubset(item[props.itemValue], model.value) && checkSubset(model.value, item[props.itemValue]))
+        inputValue.value = props.items[index];
+
         nextTick(() => {
             setTimeout(() => {
                 mainInput.value.focus();
             }, 50)
         })
-    } else model.value = inputValue.value;
+    } else model.value = inputValue.value?.[props.itemValue] || model.value;
 })
 
 </script>
@@ -66,8 +69,8 @@ watch(menuOpen, (val) => {
         </template>
         <v-card :min-width="props.minWidth" color="background">
             <v-autocomplete density="compact" hide-details variant="outlined" color="primary" :menu="true"
-                            :items="props.items" :item-title="props.itemTitle" :item-value="props.itemValue"
-                            :prefix="props.prefix" @update:model-value="handleSelection"
+                            :items="props.items"
+                            :prefix="props.prefix" @update:model-value="handleSelection" return-object
                             ref="mainInput" v-model="inputValue"></v-autocomplete>
         </v-card>
     </v-menu>

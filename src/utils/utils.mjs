@@ -209,6 +209,6 @@ export const simpleCompare = (a, b) => `${a}`.localeCompare(`${b}`);
 
 export const checkSubset = (parentArray, subsetArray) => {
     return subsetArray.every((el) => {
-        return parentArray.includes(el)
+        return Array.isArray(parentArray) ? parentArray.includes(el) : false;
     })
 }
