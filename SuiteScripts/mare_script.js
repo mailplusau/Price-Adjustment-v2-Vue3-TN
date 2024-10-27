@@ -397,6 +397,7 @@ const _ = {
     generateMondayReport() {
         if (_.getToday().getDay() !== 1) return;
 
+        let hasData = false;
         const workbook = utils.book_new();
         const headers = ['Franchisee ID', 'Franchisee Name', 'Session Status'];
         const allFranchisees = getFranchiseesByFilters(NS_MODULES, [
@@ -404,12 +405,13 @@ const _ = {
         ]);
 
         getPriceAdjustmentRulesByFilters(NS_MODULES, [
-            ['custrecord_1301_deadline', 'onOrBefore'.toLowerCase(), 'today'],
+            ['custrecord_1301_deadline', 'onOrAfter'.toLowerCase(), 'today'],
             'AND',
-            ['custrecord_1301_opening_date', 'onOrAfter'.toLowerCase(), 'today'],
+            ['custrecord_1301_opening_date', 'onOrBefore'.toLowerCase(), 'today'],
         ]).forEach(priceAdjustmentSession => {
+            hasData = true;
             let effectiveDate = priceAdjustmentSession['custrecord_1301_effective_date'];
-            effectiveDate = effectiveDate.substring(0, effectiveDate.indexOf(' '));
+            effectiveDate = effectiveDate.substring(0, effectiveDate.indexOf(' ')).replace(/\//gi, '.');
 
             const priceAdjustmentRecords = getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, [
                 ['custrecord_1302_master_record', 'is', priceAdjustmentSession['internalid']],
@@ -435,8 +437,10 @@ const _ = {
 
             utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
             utils.sheet_add_json(worksheet, rows, { origin: 'A2', skipHeader: true });
-            utils.book_append_sheet(workbook, worksheet, `EDate: ${effectiveDate}`);
+            utils.book_append_sheet(workbook, worksheet, `EDate ${effectiveDate}`);
         });
+
+        if (!hasData) return NS_MODULES.log.debug('generateMondayReport', 'Nothing to report');
 
         const xlsxFile = writeXLSX(workbook, { type: 'base64' });
 
@@ -461,6 +465,8 @@ const _ = {
             attachments: [attachmentFile],
             isInternalOnly: true
         });
+
+        NS_MODULES.log.debug('generateMondayReport', 'Monday report sent');
     },
     generateReport(summaryContext) {
         const sessions = {};
