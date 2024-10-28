@@ -60,6 +60,8 @@ const actions = {
 };
 
 async function fetchData(ctx) {
+    if (!usePricingRules().currentSession.id) return;
+    
     const adjustmentDataOfThisPeriod = await http.get('getPriceAdjustmentOfFranchiseeByFilter', {
         filters: [
             ['custrecord_1302_master_record', 'is', usePricingRules().currentSession.id],

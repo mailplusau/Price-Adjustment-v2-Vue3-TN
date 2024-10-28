@@ -49,7 +49,10 @@ function handleSelection() {
 
 watch(menuOpen, (val) => {
     if (val) {
-        let index = props.items.findIndex(item => checkSubset(item[props.itemValue], model.value) && checkSubset(model.value, item[props.itemValue]))
+        let index = props.items.findIndex(item => Array.isArray(item[props.itemValue])
+            ? (checkSubset(item[props.itemValue], model.value) && checkSubset(model.value, item[props.itemValue]))
+            : (item[props.itemValue] === model.value));
+
         inputValue.value = props.items[index];
 
         nextTick(() => {
@@ -69,7 +72,7 @@ watch(menuOpen, (val) => {
         </template>
         <v-card :min-width="props.minWidth" color="background">
             <v-autocomplete density="compact" hide-details variant="outlined" color="primary" :menu="true"
-                            :items="props.items"
+                            :items="props.items" :item-value="props.itemValue" :item-title="props.itemTitle"
                             :prefix="props.prefix" @update:model-value="handleSelection" return-object
                             ref="mainInput" v-model="inputValue"></v-autocomplete>
         </v-card>

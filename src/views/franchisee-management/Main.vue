@@ -58,6 +58,10 @@ function toggleSearchBox() {
 
                         <v-card v-else color="transparent" flat>
                             <PricingRuleDialog class="ml-4" :show-franchisee-record="false"/>
+
+                            <v-btn variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
+                                Refresh
+                            </v-btn>
                         </v-card>
 
                     </v-slide-x-transition>
