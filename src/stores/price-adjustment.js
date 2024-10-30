@@ -228,14 +228,14 @@ async function _getServicesOfFranchisee() {
                 has6MonthsOldInvoice: false,
             }
 
-        customerRecords[customerId].eligibleForPriceIncrease = !/^(SC|NP|AP)/i.test(invoice['customer.companyname'])
+        customerRecords[customerId].eligibleForPriceIncrease = !/^(SC |NP |AP )/i.test(invoice['customer.companyname'])
             && !/(Shine Lawyer|Sendle|Dashback)/i.test(invoice['customer.companyname']);
 
         if (!customerRecords[customerId].has12MonthsOldInvoice)
-            customerRecords[customerId].has12MonthsOldInvoice = parse(invoice['trandate'], 'd/M/y', new Date()) > subMonths(new Date(), 12);
+            customerRecords[customerId].has12MonthsOldInvoice = parse(invoice["trandate"], "d/M/y", new Date()) <= subMonths(new Date(), 12);
 
         if (!customerRecords[customerId].has6MonthsOldInvoice)
-            customerRecords[customerId].has6MonthsOldInvoice = parse(invoice['trandate'], 'd/M/y', new Date()) < subMonths(new Date(), 6);
+            customerRecords[customerId].has6MonthsOldInvoice = parse(invoice['trandate'], 'd/M/y', new Date()) >= subMonths(new Date(), 6);
     });
 
     return services.map(service => {
@@ -277,12 +277,13 @@ async function _preparePriceAdjustmentData(ctx, ignoreOldAdjustmentData = false)
 
 function _applySpecialRules(data) { // apply master rules for National Accounts customers and confirm them too
     if (data['CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national']) {
-        const pricingRules = JSON.parse(JSON.stringify(usePricingRules().currentSession.details.custrecord_1301_pricing_rules));
+        const pricingRules = JSON.parse(usePricingRules().currentSession.details.custrecord_1301_pricing_rules);
 
         data['confirmed'] = true;
-        for (let rule of pricingRules)
-            if (rule['services'].includes(data['custrecord_service']))
-                data['adjustment'] = _applyPricingRules(rule, data['custrecord_service_price']);
+        for (let rule of pricingRules) {
+            if (rule["services"].includes(data["custrecord_service"]))
+                data["adjustment"] = _applyPricingRules(rule, data["custrecord_service_price"]);
+        }
     }
 }
 
