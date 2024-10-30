@@ -29,6 +29,10 @@ const rowData = computed({
 
 const onGridReady = (params) => {
     gridApi.value = params.api;
+    gridApi.value.applyColumnState({
+        state: [{ colId: "sessionStatus", sort: "asc" }],
+        defaultState: { sort: null },
+    });
 };
 
 const columnDefs = [
@@ -46,6 +50,7 @@ const columnDefs = [
     },
     {
         headerName: 'Session Status', editable: false, filter: 'agFilterSessionStatus', width: '250px', cellRenderer: 'agFranchiseeSessionStatus',
+        field: 'sessionStatus',
         valueGetter: params => getSessionStatusFromAdjustmentRecord(params?.data?.adjustmentRecord),
         comparator: (valueA, valueB) => `${valueA.order}`.localeCompare(`${valueB.order}`)
     },
