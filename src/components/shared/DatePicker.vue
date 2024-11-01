@@ -36,14 +36,23 @@ const dateFormat = new Intl.DateTimeFormat('en-AU', {
 
 function update() {
     dialogOpen.value = false;
-    if (model.value === selectedDate.value) return;
-    model.value = selectedDate.value;
-    emit('dateChanged', selectedDate.value);
+    const shiftedSelectedDate = setTimeTo4AMLocal(selectedDate.value);
+    if (model.value === shiftedSelectedDate) return;
+    model.value = shiftedSelectedDate;
+    emit('dateChanged', shiftedSelectedDate);
 }
 
 function clearInput() {
     model.value = '';
     selectedDate.value = null;
+}
+
+function setTimeTo4AMLocal(dateObject) {
+    const year = `${dateObject.getFullYear()}`;
+    const month = `${dateObject.getMonth() + 1}`.padStart(2, '0');
+    const day = `${dateObject.getDate()}`.padStart(2, '0');
+
+    return new Date(`${year}-${month}-${day}T04:00:00`)
 }
 
 watch(dialogOpen, (val) => {
