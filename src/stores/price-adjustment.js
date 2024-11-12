@@ -44,6 +44,13 @@ const actions = {
             if (!!this.details.custrecord_1302_opt_out_reason && !useUserStore().isAdmin) return;
 
             await _preparePriceAdjustmentData(this);
+
+            writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
+
+            const priceAdjustmentData =  JSON.parse(JSON.stringify(this.form));
+            priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
+
+            await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentRecordId: this.id, priceAdjustmentData});
         } else if (data.length) {
             console.error("More than 1 record found"); // TODO: Resolve this
         } else {
