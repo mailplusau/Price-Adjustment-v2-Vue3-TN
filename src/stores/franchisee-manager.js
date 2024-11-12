@@ -65,7 +65,8 @@ async function fetchData(ctx) {
     const adjustmentDataOfThisPeriod = await http.get('getPriceAdjustmentOfFranchiseeByFilter', {
         filters: [
             ['custrecord_1302_master_record', 'is', usePricingRules().currentSession.id],
-        ]
+        ],
+        additionalColumns: ['lastmodified', 'lastmodifiedby'],
     })
 
     ctx.all = useFranchiseeStore().all.map((franchisee, index) => {
