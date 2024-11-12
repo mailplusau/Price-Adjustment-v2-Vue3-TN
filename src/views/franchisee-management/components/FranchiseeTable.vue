@@ -7,6 +7,7 @@ import { computed, ref, shallowRef, watch } from "vue";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
 import AgFMTableContextMenu from "@/views/franchisee-management/components/agFMTableContextMenu.vue";
 import { getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
+import { parse } from 'date-fns';
 
 const franchiseeManager = useFranchiseeManager();
 const props = defineProps(['searchText']);
@@ -55,7 +56,25 @@ const columnDefs = [
         comparator: (valueA, valueB) => `${valueA.order}`.localeCompare(`${valueB.order}`)
     },
     {
-        headerName: '', editable: false, filter: false, width: '150px', resizable: false, cellRenderer: 'agControlCell'
+        headerName: 'Last Modified', editable: false, filter: true, width: '150px',
+        valueGetter: params => {
+            return params?.data?.adjustmentRecord ? params?.data?.adjustmentRecord['lastModified'.toLowerCase()] : '--';
+        },
+        comparator: (valueA, valueB, nodeA, nodeB, isDescending) => {
+            const dateA = valueA === '--' ? (isDescending ? 0 : Number.MAX_VALUE) : parse(valueA, 'd/M/y h:m a', new Date());
+            const dateB = valueB === '--' ? (isDescending ? 0 : Number.MAX_VALUE) : parse(valueB, 'd/M/y h:m a', new Date());
+
+            return dateA - dateB;
+        }
+    },
+    {
+        headerName: 'By', editable: false, filter: true, width: '160px',
+        valueGetter: params => {
+            return params?.data?.adjustmentRecord ? params?.data?.adjustmentRecord['lastModifiedBy_text'.toLowerCase()] : '--';
+        }
+    },
+    {
+        headerName: '', editable: false, filter: false, width: '110px', resizable: false, cellRenderer: 'agControlCell'
     },
 ];
 
