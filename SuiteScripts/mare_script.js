@@ -206,14 +206,14 @@ const _ = {
         if (!billingAddress) throw `Customer ID ${customerId} has no valid address`;
 
         let mergeResult = NS_MODULES.render['mergeEmail']({
-            templateId: 178,
+            templateId: 473,
             entity: {type: 'customer', id: parseInt(customerId)}
         });
         let emailSubject = mergeResult.subject;
         let emailBody = mergeResult.body;
 
         let serviceTableHtml = '<table width="500" border="1"><thead><tr><th>SERVICE</th><th>AMOUNT OF INCREASE(Exc. GST)</th></tr></thead><tbody>';
-        serviceTableHtml += adjustedServices.map(service => `<tr><th>${service['serviceName']}</th><th>${formatPrice(service['adjustment'])}</th></tr>`).join('');
+        serviceTableHtml += adjustedServices.map(service => `<tr><th>${service['serviceName']}</th><th>${formatPrice(service['adjustment']).replace('A', '')}</th></tr>`).join('');
         serviceTableHtml += '</tbody></table>';
 
         emailBody = emailBody.replace(/&{serviceTable}/gi, serviceTableHtml);
@@ -408,6 +408,8 @@ const _ = {
             ['custrecord_1301_deadline', 'onOrAfter'.toLowerCase(), 'today'],
             'AND',
             ['custrecord_1301_opening_date', 'onOrBefore'.toLowerCase(), 'today'],
+            'AND',
+            ['custrecord_1301_completion_date', 'isEmpty'.toLowerCase(), '']
         ]).forEach(priceAdjustmentSession => {
             hasData = true;
             let effectiveDate = priceAdjustmentSession['custrecord_1301_effective_date'];
