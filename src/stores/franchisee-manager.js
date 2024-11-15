@@ -4,6 +4,8 @@ import { useGlobalDialog } from "@/stores/global-dialog";
 import { useFranchiseeStore } from "@/stores/franchisees";
 import { usePricingRules } from "@/stores/pricing-rules";
 import { useUserStore } from "@/stores/user";
+import { utils, writeFile } from "xlsx";
+import { getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
 
 const state = {
     all: [],
@@ -56,6 +58,34 @@ const actions = {
         await fetchData(this);
 
         await useGlobalDialog().close(500, 'Complete');
+    },
+    async exportData() {
+        useGlobalDialog().displayProgress('', 'Generating Excel File');
+        const excludeList = [0];
+
+        let excelRows = this.all.map(franchisee => {
+            if (/^old /gi.test(franchisee['companyname'])) return;
+            if (/^test/gi.test(franchisee['companyname'])) return;
+            if (excludeList.includes(parseInt(franchisee['internalid']))) return;
+
+            return {
+                franchiseeId: franchisee['internalid'],
+                franchiseeName: franchisee['companyname'],
+                sessionStatus: getSessionStatusFromAdjustmentRecord(franchisee['adjustmentRecord']).status
+            }
+        }).filter(item => !!item);
+
+        const headers = ['Franchisee ID', 'Franchisee Name', 'Session Status'];
+        const workbook = utils.book_new();
+        const worksheet = utils.json_to_sheet(excelRows);
+
+        utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+        utils.sheet_add_json(worksheet, excelRows, { origin: 'A2', skipHeader: true });
+        utils.book_append_sheet(workbook, worksheet, "Report");
+
+        writeFile(workbook, "franchisee_price_adjustment_report.xlsx", { compression: true });
+
+        await useGlobalDialog().close(2000, 'Complete! Your spreadsheet will be downloaded shortly.')
     }
 };
 

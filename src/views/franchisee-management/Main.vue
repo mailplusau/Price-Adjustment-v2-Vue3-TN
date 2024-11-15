@@ -62,6 +62,10 @@ function toggleSearchBox() {
                             <v-btn variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
                                 Refresh
                             </v-btn>
+
+                            <v-btn variant="elevated" color="green" size="small" class="ml-4" @click="franchiseeManager.exportData()">
+                                Export
+                            </v-btn>
                         </v-card>
 
                     </v-slide-x-transition>
