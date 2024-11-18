@@ -246,6 +246,9 @@ async function _getServicesOfFranchisee() {
 
         if (!customerRecords[customerId].has6MonthsOldInvoice)
             customerRecords[customerId].has6MonthsOldInvoice = parse(invoice['trandate'], 'd/M/y', new Date()) >= subMonths(new Date(), 6);
+
+        if ([202599, 217602].includes(parseInt(invoice['customer.leadsource']))) // Relocation (202599), Change of Entity (217602)
+            customerRecords[customerId].has12MonthsOldInvoice = true; // nullify the original criteria if a customer relocated or change of entity
     });
 
     return services.map(service => {
