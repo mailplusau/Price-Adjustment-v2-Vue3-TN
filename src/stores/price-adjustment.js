@@ -54,7 +54,8 @@ const actions = {
         } else if (data.length) {
             console.error("More than 1 record found"); // TODO: Resolve this
         } else {
-            this.resetForm();
+            for (let fieldId in this.form) this.form[fieldId] = priceAdjustment[fieldId];
+
             this.form.custrecord_1302_master_record = usePricingRules().currentSession.id;
             this.form.custrecord_1302_franchisee = useFranchiseeStore().current.id;
             this.form.custrecord_1302_pricing_rules = [...JSON.parse(usePricingRules().currentSession.details.custrecord_1301_pricing_rules)];
@@ -63,6 +64,8 @@ const actions = {
 
             await this.createPriceAdjustmentRecord();
             await this.fetchPriceAdjustmentRecord();
+
+            this.resetForm();
         }
     },
     async fetchPriceAdjustmentRecord() {
