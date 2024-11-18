@@ -315,7 +315,7 @@ const getOperations = {
     },
     'getActiveServicesByFranchiseeId' : function (response, {franchiseeId, dateOfLastPriceAdjustment}) {
         _writeResponseJson(response, getServicesByFilters(NS_MODULES, [
-            ['custrecord_service_franchisee', 'anyof', franchiseeId],
+            ['custrecord_service_customer.partner', 'anyof', franchiseeId],
             'AND',
             ['custrecord_service_customer.status' ,'anyof', '13'],
             'AND',
