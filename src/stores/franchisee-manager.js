@@ -6,6 +6,7 @@ import { usePricingRules } from "@/stores/pricing-rules";
 import { useUserStore } from "@/stores/user";
 import { utils, writeFile } from "xlsx";
 import { getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
+import { readFromDataCells } from "../../../netsuite-shared-modules/index.mjs";
 
 const state = {
     all: [],
@@ -59,8 +60,16 @@ const actions = {
 
         await useGlobalDialog().close(500, 'Complete');
     },
-    async exportData() {
-        useGlobalDialog().displayProgress('', 'Generating Excel File');
+    async exportFranchiseeSessionStatus() {
+        const res = await useGlobalDialog().displayConfirmation('Exporting Data',
+            'This will export a report on the latest session status of franchisees. Proceed?');
+
+        if (!res) return;
+
+        useGlobalDialog().displayProgress('', 'Retrieving Data from Netsuite...');
+        await fetchData(this);
+
+        useGlobalDialog().displayProgress('', 'Generating Spreadsheet File...');
         const excludeList = [0];
 
         let excelRows = this.all.map(franchisee => {
@@ -76,6 +85,50 @@ const actions = {
         }).filter(item => !!item);
 
         const headers = ['Franchisee ID', 'Franchisee Name', 'Session Status'];
+        const workbook = utils.book_new();
+        const worksheet = utils.json_to_sheet(excelRows);
+
+        utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+        utils.sheet_add_json(worksheet, excelRows, { origin: 'A2', skipHeader: true });
+        utils.book_append_sheet(workbook, worksheet, "Report");
+
+        writeFile(workbook, "franchisee_session_status_report.xlsx", { compression: true });
+
+        await useGlobalDialog().close(2000, 'Complete! Your spreadsheet will be downloaded shortly.')
+    },
+    async exportAllFranchiseeAdjustmentData() {
+        const res = await useGlobalDialog().displayConfirmation('Exporting Data',
+            'This will export a report on only services that have received confirmed and actionable adjustment. Proceed?');
+
+        if (!res) return;
+
+        useGlobalDialog().displayProgress('', 'Retrieving Data from Netsuite...');
+        await fetchData(this);
+
+        useGlobalDialog().displayProgress('', 'Generating Spreadsheet File...');
+        let excelRows = [];
+
+        this.all.forEach(franchiseeData => {
+            const adjustmentRecord = franchiseeData['adjustmentRecord'];
+            if (adjustmentRecord && !adjustmentRecord?.['custrecord_1302_opt_out_reason']) {
+                const adjustmentData = readFromDataCells(adjustmentRecord, 'custrecord_1302_data_') || [];
+
+                adjustmentData.filter(item => item['confirmed'] && item['adjustment'] !== 0).forEach(adjustedService => {
+                    excelRows.push({
+                        franchiseeId: adjustedService['custrecord_service_franchisee'],
+                        franchiseeName: adjustedService['custrecord_service_franchisee_text'],
+                        customerId: adjustedService['CUSTRECORD_SERVICE_CUSTOMER.entityid'],
+                        customerName: adjustedService['CUSTRECORD_SERVICE_CUSTOMER.companyname'],
+                        service: adjustedService['custrecord_service_text'],
+                        currentPrice: parseFloat(adjustedService['custrecord_service_price']),
+                        adjustment: parseFloat(adjustedService['adjustment']),
+                        newPrice: parseFloat(adjustedService['custrecord_service_price']) + parseFloat(adjustedService['adjustment']),
+                    })
+                })
+            }
+        })
+
+        const headers = ['Franchisee ID', 'Franchisee Name', 'Customer ID', 'Customer Name', 'Service', 'Current Price', 'Adjustment', 'New Price'];
         const workbook = utils.book_new();
         const worksheet = utils.json_to_sheet(excelRows);
 

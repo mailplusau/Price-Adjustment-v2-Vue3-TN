@@ -63,9 +63,26 @@ function toggleSearchBox() {
                                 Refresh
                             </v-btn>
 
-                            <v-btn variant="elevated" color="green" size="small" class="ml-4" @click="franchiseeManager.exportData()">
-                                Export
-                            </v-btn>
+                            <v-menu transition="scale-transition">
+                                <template v-slot:activator="{ props, isActive }">
+                                    <v-btn variant="elevated" color="green" size="small" class="ml-4" v-bind="props">
+                                        Export
+                                        <v-divider vertical class="mx-2"></v-divider>
+                                        <v-icon class="toggleUpDown" :class="{ 'rotate': isActive }">
+                                            mdi-chevron-down
+                                        </v-icon>
+                                    </v-btn>
+                                </template>
+
+                                <v-list density="compact">
+                                    <v-list-item @click="franchiseeManager.exportFranchiseeSessionStatus()">
+                                        <v-list-item-title>Session Statuses</v-list-item-title>
+                                    </v-list-item>
+                                    <v-list-item @click="franchiseeManager.exportAllFranchiseeAdjustmentData()">
+                                        <v-list-item-title>Confirmed Adjustments</v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
                         </v-card>
 
                     </v-slide-x-transition>
@@ -81,5 +98,11 @@ function toggleSearchBox() {
 </template>
 
 <style scoped>
+.toggleUpDown {
+    transition: transform .3s ease-in-out !important;
+}
 
+.toggleUpDown.rotate {
+    transform: rotate(180deg);
+}
 </style>
