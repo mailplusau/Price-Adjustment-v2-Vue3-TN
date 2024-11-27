@@ -68,6 +68,14 @@ const actions = {
             this.resetForm();
         }
     },
+    resetAll() {
+        this.id = null;
+        this.details = {...priceAdjustment};
+        this.texts = {...priceAdjustment};
+        this.form = {...priceAdjustment};
+        this.priceAdjustmentData = [];
+        this.savingData = false;
+    },
     async fetchPriceAdjustmentRecord() {
         let data = await http.get('getPriceAdjustmentOfFranchisee', {
             priceAdjustmentRuleId: usePricingRules().currentSession.id, franchiseeId: useFranchiseeStore().current.id});

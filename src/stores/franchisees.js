@@ -38,6 +38,11 @@ const actions = {
         await _fetchCurrentFranchisee(this);
         await usePriceAdjustment().init();
         this.busy = false;
+    },
+    resetCurrent() {
+        this.current.id = null;
+        this.details = {...franchiseeFields};
+        this.texts = {...franchiseeFields};
     }
 };
 

@@ -83,6 +83,11 @@ function toggleSearchBox() {
                                     </v-list-item>
                                 </v-list>
                             </v-menu>
+
+                            <v-btn variant="outlined" color="secondary" size="small" class="ml-4"
+                                    @click="franchiseeManager.triggerUpdateOnAllFranchiseesWhoHaveData()">
+                                Trigger Update
+                            </v-btn>
                         </v-card>
 
                     </v-slide-x-transition>

@@ -5,8 +5,9 @@ import { useFranchiseeStore } from "@/stores/franchisees";
 import { usePricingRules } from "@/stores/pricing-rules";
 import { useUserStore } from "@/stores/user";
 import { utils, writeFile } from "xlsx";
-import { getSessionStatusFromAdjustmentRecord } from "@/utils/utils.mjs";
+import { getSessionStatusFromAdjustmentRecord, waitMilliseconds } from "@/utils/utils.mjs";
 import { readFromDataCells } from "../../../netsuite-shared-modules/index.mjs";
+import { usePriceAdjustment } from "@/stores/price-adjustment";
 
 const state = {
     all: [],
@@ -119,6 +120,7 @@ const actions = {
                         franchiseeName: adjustedService['custrecord_service_franchisee_text'],
                         customerId: adjustedService['CUSTRECORD_SERVICE_CUSTOMER.entityid'],
                         customerName: adjustedService['CUSTRECORD_SERVICE_CUSTOMER.companyname'],
+                        serviceId: adjustedService['internalid'],
                         service: adjustedService['custrecord_service_text'],
                         currentPrice: parseFloat(adjustedService['custrecord_service_price']),
                         adjustment: parseFloat(adjustedService['adjustment']),
@@ -128,7 +130,7 @@ const actions = {
             }
         })
 
-        const headers = ['Franchisee ID', 'Franchisee Name', 'Customer ID', 'Customer Name', 'Service', 'Current Price', 'Adjustment', 'New Price'];
+        const headers = ['Franchisee ID', 'Franchisee Name', 'Customer ID', 'Customer Name', 'Service ID', 'Service', 'Current Price', 'Adjustment', 'New Price'];
         const workbook = utils.book_new();
         const worksheet = utils.json_to_sheet(excelRows);
 
@@ -139,6 +141,43 @@ const actions = {
         writeFile(workbook, "franchisee_price_adjustment_report.xlsx", { compression: true });
 
         await useGlobalDialog().close(2000, 'Complete! Your spreadsheet will be downloaded shortly.')
+    },
+
+    async triggerUpdateOnAllFranchiseesWhoHaveData() {
+        if (!usePricingRules().currentSession.id) return;
+
+        const res = await useGlobalDialog().displayConfirmation('Warning!!!',
+            'This will trigger adjustment data update for all franchisees who already have data. Proceed?');
+
+        if (!res) return;
+
+        const currentFranchiseeId = useFranchiseeStore().current.id;
+
+        const adjustmentDataOfThisPeriod = await http.get('getPriceAdjustmentOfFranchiseeByFilter', {
+            filters: [ ['custrecord_1302_master_record', 'is', usePricingRules().currentSession.id] ],
+            additionalColumns: ['lastmodified', 'lastmodifiedby'],
+        })
+
+        for (let [index, adjustmentRecord] of adjustmentDataOfThisPeriod.entries()) {
+            if (currentFranchiseeId === adjustmentRecord['custrecord_1302_franchisee']) continue; // we load this at the end
+
+            useGlobalDialog().displayProgress('',
+                `Updating data of franchisee <b>${adjustmentRecord['custrecord_1302_franchisee_text']}</b> (${index + 1}/${adjustmentDataOfThisPeriod.length})...`);
+
+            console.log('Franchisee:', adjustmentRecord['custrecord_1302_franchisee'], adjustmentRecord['custrecord_1302_franchisee_text']);
+            await useFranchiseeStore().changeCurrentFranchiseeId(adjustmentRecord['custrecord_1302_franchisee']);
+            await waitMilliseconds(1000);
+        }
+
+        if (currentFranchiseeId) { // there was a stored franchisee id, we load it to trigger update too
+            console.log('Franchisee:', currentFranchiseeId, useFranchiseeStore().current.details.companyname);
+            await useFranchiseeStore().changeCurrentFranchiseeId(currentFranchiseeId)
+        } else { // other we reset it to blank
+            useFranchiseeStore().resetCurrent();
+            usePriceAdjustment().resetAll();
+        }
+
+        await useGlobalDialog().close(1500, 'Update complete. All franchisees with data has been updated.')
     }
 };
 
