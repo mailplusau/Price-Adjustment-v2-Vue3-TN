@@ -251,7 +251,7 @@ const getOperations = {
             'AND', ['trandate','within', start, end],
             "AND", ["amount","notequalto","0.00"],
             "AND", ["customer.custentity_special_customer_type","noneof","3","2","5","4","1"],
-        ], ['trandate', 'amount', 'customer.internalid', 'customer.entityid', 'customer.companyname',
+        ], ['trandate', 'amount', 'customer.internalid', 'customer.entityid', 'customer.companyname', 'customer.leadsource', 'tranid',
             'customer.custentity_date_of_last_price_increase'], true))
     },
     'getActiveServicesByCustomerId' : function (response, {customerId}) {
@@ -373,6 +373,9 @@ const getOperations = {
     'getPriceAdjustmentOfFranchiseeByFilter' : function(response, {filters, additionalColumns, overwriteColumns}) {
         _writeResponseJson(response, getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },
+    'getServicesByFilter' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getServicesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
     'getSelectOptions' : function (response, {id, type, valueColumnName, textColumnName}) {
         let {search} = NS_MODULES;
         let data = [];
@@ -467,7 +470,6 @@ const postOperations = {
                 + ` which has effective date on ${effectiveDate} with the following reason:`
                 + `<br><br>${optOutReason}`,
             recipients: [
-                import.meta.env.VITE_NS_USER_1732844_EMAIL,
                 import.meta.env.VITE_NS_USER_409635_EMAIL,
                 import.meta.env.VITE_NS_USER_772595_EMAIL,
                 import.meta.env.VITE_NS_USER_280700_EMAIL,
