@@ -125,7 +125,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
                                     .filter(item => item) : [];
 
                             return {
-                                serviceName: activeServices['custrecord_service_ns_item_text'],
+                                serviceName: activeService['custrecord_service_ns_item_text'],
                                 serviceId: service['internalid'],
                                 serviceType: service['custrecord_service_text'],
                                 servicePrice: service['custrecord_service_price'],
