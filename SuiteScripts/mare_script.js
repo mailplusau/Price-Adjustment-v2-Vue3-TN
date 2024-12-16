@@ -23,6 +23,7 @@ import { formatPrice, getSessionStatusFromAdjustmentRecord } from "@/utils/utils
 let NS_MODULES = {};
 
 const moduleNames = ['render', 'file', 'runtime', 'search', 'record', 'url', 'format', 'email', 'task', 'log', 'https'];
+const dryRun = false;
 
 // eslint-disable-next-line no-undef
 define(moduleNames.map(item => 'N/' + item), (...args) => {
@@ -88,7 +89,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
             prepareTask(priceAdjustmentSession, 'CheckCustomerToProcess');
         });
 
-        NS_MODULES.log.debug('getInputData', `today: ${_.getToday()} | mapStageTasks: ${JSON.stringify(mapStageTasks)}`);
+        NS_MODULES.log.debug(`${dryRun ? 'dryRun ' : ''}getInputData`, `today: ${_.getToday()} | mapStageTasks: ${JSON.stringify(mapStageTasks)}`);
 
         return mapStageTasks;
     }
@@ -149,9 +150,8 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
         const shouldUpdateFinancialItems = today.getDate() >= judgementDay;
 
         if (context.key.includes('NotifyCustomer')) { // send email here
-            _.sendPriceAdjustmentNotificationEmail(value['sessionId'], value['customerId'], value['adjustedServices']);
-
-            context.write({ key: 'NotifiedCustomer_' + value['customerId'], value });
+            if (_.sendPriceAdjustmentNotificationEmail(value['sessionId'], value['customerId'], value['adjustedServices']))
+                context.write({ key: 'NotifiedCustomer_' + value['customerId'], value });
         } else if  (context.key.includes('ProcessCustomer')) { // process price adjustment here
             _.processPriceAdjustmentE2E(value['sessionId'], value['customerId'], value['franchiseeId'], value['adjustedServices']);
 
@@ -165,7 +165,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
     function summarize(context) {
         _.handleErrorIfAny(context);
 
-        _.generateReport(context);
+        _.generateReportOnProcessedCustomer(context);
         _.generateMondayReport();
         _.finalisePriceAdjustmentProcess(context);
         NS_MODULES.log.debug('summarize', 'done')
@@ -181,11 +181,9 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 
 const _ = {
     sendPriceAdjustmentNotificationEmail(sessionId, customerId, adjustedServices) {
-        NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `customerId: ${customerId}`);
-
         adjustedServices = adjustedServices.filter(item => item['adjustment'] !== 0 && item['confirmed']);
 
-        if (!adjustedServices.length) return;
+        if (!adjustedServices.length) return false;
 
         const customerInfo = NS_MODULES.search['lookupFields']({
             type: 'customer', id: customerId,
@@ -216,14 +214,27 @@ const _ = {
         serviceTableHtml += adjustedServices.map(service => `<tr><th>${service['serviceName']}</th><th>${formatPrice(service['adjustment']).replace('A', '')}</th></tr>`).join('');
         serviceTableHtml += '</tbody></table>';
 
-        emailBody = emailBody.replace(/&{serviceTable}/gi, serviceTableHtml);
-        emailBody = emailBody.replace(/&{headerDate}/gi, this.getTodayDate());
-        emailBody = emailBody.replace(/&{addrUnit}/gi, billingAddress['addr1']);
-        emailBody = emailBody.replace(/&{addrStreet}/gi, billingAddress['addr2']);
-        emailBody = emailBody.replace(/&{addrCity}/gi, billingAddress['city']);
-        emailBody = emailBody.replace(/&{addrState}/gi, billingAddress['state']);
-        emailBody = emailBody.replace(/&{addrPostcode}/gi, billingAddress['zip']);
-        emailBody = emailBody.replace(/&{dateEffective}/gi, effectiveDate);
+        emailBody = emailBody.replace(/&(amp;)?{serviceTable}/gi, serviceTableHtml);
+        emailBody = emailBody.replace(/&(amp;)?{headerDate}/gi, this.getTodayDate());
+        emailBody = emailBody.replace(/&(amp;)?{addrUnit}/gi, billingAddress['addr1']);
+        emailBody = emailBody.replace(/&(amp;)?{addrStreet}/gi, billingAddress['addr2']);
+        emailBody = emailBody.replace(/&(amp;)?{addrCity}/gi, billingAddress['city']);
+        emailBody = emailBody.replace(/&(amp;)?{addrState}/gi, billingAddress['state']);
+        emailBody = emailBody.replace(/&(amp;)?{addrPostcode}/gi, billingAddress['zip']);
+        emailBody = emailBody.replace(/&(amp;)?{dateEffective}/gi, effectiveDate);
+
+        if (dryRun) {
+            NS_MODULES.email.send({
+                author: 35031, subject: emailSubject, body: emailBody,
+                recipients: [import.meta.env.VITE_NS_USER_1732844_EMAIL],
+                isInternalOnly: true
+            })
+
+            NS_MODULES.log.debug("dryRun sendPriceAdjustmentNotificationEmail",
+                `notice sent to ${customerInfo["email"]}, ${customerInfo["custentity_email_service"]} and ${customerInfo["custentity_accounts_cc_email"]}`);
+
+            return true;
+        }
 
         NS_MODULES.email.send({
             author: 35031, // accounts@mailplus.com.au
@@ -238,9 +249,15 @@ const _ = {
             isInternalOnly: true
         })
 
-        NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail', `notice sent to ${customerInfo['email']} and ${customerInfo['custentity_email_service']}`)
+        NS_MODULES.log.debug('sendPriceAdjustmentNotificationEmail',
+            `notice sent to ${customerInfo["email"]}, ${customerInfo["custentity_email_service"]} and ${customerInfo["custentity_accounts_cc_email"]}`);
+
+        return true;
     },
     processPriceAdjustmentE2E(sessionId, customerId, franchiseeId, adjustedServices = []) {
+        if (dryRun) return NS_MODULES.log.debug('dryRun processPriceAdjustmentE2E',
+            `sessionId: ${sessionId} | franchiseeId: ${franchiseeId} | customerId: ${customerId} | adjustedServices: ${JSON.stringify(adjustedServices)}`);
+
         // ON Effective date:
         // - create commencement register, Sales Type: Price Increase, set it to Signed. Set previous Comm Regs to Changed
         // - (does it need T&C agreement???)
@@ -344,7 +361,9 @@ const _ = {
         });
     },
     updateFinancialItemsOfCustomer(customerId) {
-        NS_MODULES.log.debug('updateFinancialItemsOfCustomer', `customerId: ${customerId}`);
+        NS_MODULES.log.debug(`${dryRun ? 'dryRun ' : ''}updateFinancialItemsOfCustomer`, `customerId: ${customerId}`);
+
+        if (dryRun) return;
 
         const sublistId = 'itemPricing'.toLowerCase();
         const customerRecord = NS_MODULES.record.load({type: 'customer', id: customerId, isDynamic: true});
@@ -455,9 +474,9 @@ const _ = {
 
         NS_MODULES.email.send({
             author: 112209,
-            subject: 'Weekly Price Increase Activity Report',
+            subject: `${dryRun ? '[DRY_RUN] ' : ''}Weekly Price Increase Activity Report`,
             body: 'Please see the attached spreadsheet for franchisees\' activities within this Price Increase Period as of today.',
-            recipients: [
+            recipients: dryRun ? [import.meta.env.VITE_NS_USER_1732844_EMAIL] : [
                 import.meta.env.VITE_NS_USER_1732844_EMAIL,
                 import.meta.env.VITE_NS_USER_409635_EMAIL,
                 import.meta.env.VITE_NS_USER_772595_EMAIL,
@@ -470,7 +489,7 @@ const _ = {
 
         NS_MODULES.log.debug('generateMondayReport', 'Monday report sent');
     },
-    generateReport(summaryContext) {
+    generateReportOnProcessedCustomer(summaryContext) {
         const sessions = {};
         const headers = ['Entity ID', 'Customer ID', 'Customer Name', 'Franchisee ID', 'Franchisee Name',
             'Service ID', 'Service Name', 'Service Price', 'Adjustment', 'New Price', 'Status'];
@@ -515,7 +534,7 @@ const _ = {
 
         if (!Object.keys(sessions).length) return; // cancel this if there are nothing to report
 
-        NS_MODULES.log.debug('generateReport', `sending report`);
+        NS_MODULES.log.debug('generateReportOnProcessedCustomer', `sending report`);
 
         const workbook = utils.book_new();
 
@@ -538,9 +557,9 @@ const _ = {
 
         NS_MODULES.email.send({
             author: 112209,
-            subject: `Final Price Increase Report for ${this.getTodayDate()}`,
+            subject: `${dryRun ? '[DRY_RUN] ' : ''}Final Price Increase Report for ${this.getTodayDate()}`,
             body: `Please see the attached spreadsheet for customers and franchisee affected by this Price Increase Period (effective date ${this.getTodayDate()})`,
-            recipients: [
+            recipients: dryRun ? [import.meta.env.VITE_NS_USER_1732844_EMAIL] : [
                 import.meta.env.VITE_NS_USER_1732844_EMAIL,
                 import.meta.env.VITE_NS_USER_409635_EMAIL,
                 import.meta.env.VITE_NS_USER_772595_EMAIL,
@@ -553,15 +572,28 @@ const _ = {
     },
     finalisePriceAdjustmentProcess(summaryContext) {
         const processedSessionIds = [], notifiedSessionIds = [];
+        let notifiedCustomerCount = 0;
         summaryContext.output.iterator().each(function(key, value) {
             const { sessionId } = JSON.parse(`${value}`);
 
             if (sessionId && `${key}`.includes('ProcessedCustomer')) processedSessionIds.push(sessionId)
-            if (sessionId && `${key}`.includes('NotifiedCustomer')) notifiedSessionIds.push(sessionId)
+            if (sessionId && `${key}`.includes('NotifiedCustomer')) {
+                notifiedCustomerCount++;
+                notifiedSessionIds.push(sessionId);
+            }
+
+            return true;
         });
 
         const uniqueProcessedSessionIds = [...(new Set(processedSessionIds))];
-        const uniqueNotifiedSessionIds = [...(new Set(notifiedSessionIds))]
+        const uniqueNotifiedSessionIds = [...(new Set(notifiedSessionIds))];
+
+        NS_MODULES.log.debug("finalisePriceAdjustmentProcess", `${notifiedCustomerCount} customers have been notified.`);
+        if (dryRun) {
+            NS_MODULES.log.debug("dryRun finalisePriceAdjustmentProcess", `uniqueProcessedSessionIds: ${JSON.stringify(uniqueProcessedSessionIds)}`);
+            NS_MODULES.log.debug("dryRun finalisePriceAdjustmentProcess", `uniqueNotifiedSessionIds: ${JSON.stringify(uniqueNotifiedSessionIds)}`);
+            return;
+        }
 
         for (let uniqueProcessedSessionId of uniqueProcessedSessionIds) {
             NS_MODULES.record['submitFields']({
