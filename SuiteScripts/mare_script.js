@@ -105,7 +105,8 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
             const activeServices = getServicesByFilters(NS_MODULES, [
                 ['isinactive', 'is', false],
                 'AND', ['custrecord_service_category', 'is', 1], // We take records under the Category: Services (1) only
-                'AND', ['custrecord_service_customer', 'is', customerId]
+                'AND', ['custrecord_service_customer', 'is', customerId],
+                'AND', ['custrecord_service_customer.entitystatus', 'is', 13]
             ]);
             const activeServiceIds = activeServices.map(item => item['internalid']);
             const adjustedServices = value['adjustedServices']
