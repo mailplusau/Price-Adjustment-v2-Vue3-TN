@@ -211,7 +211,7 @@ const _ = {
         let emailBody = mergeResult.body;
 
         let serviceTableHtml = '<table width="500" border="1"><thead><tr><th>SERVICE</th><th>AMOUNT OF INCREASE(Exc. GST)</th></tr></thead><tbody>';
-        serviceTableHtml += adjustedServices.map(service => `<tr><th>${service['serviceName']}</th><th>${formatPrice(service['adjustment']).replace('A', '')}</th></tr>`).join('');
+        serviceTableHtml += adjustedServices.map(service => `<tr><th>${service['serviceName']}</th><th>${formatPrice(service['adjustment']).replace('A$', '&#36;')}</th></tr>`).join('');
         serviceTableHtml += '</tbody></table>';
 
         emailBody = emailBody.replace(/&(amp;)?{serviceTable}/gi, serviceTableHtml);
