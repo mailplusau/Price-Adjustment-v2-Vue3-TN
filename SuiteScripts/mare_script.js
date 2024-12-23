@@ -89,6 +89,7 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
             prepareTask(priceAdjustmentSession, 'CheckCustomerToProcess');
         });
 
+        NS_MODULES.log.debug(`${dryRun ? 'dryRun ' : ''}getInputData`, `today: ${_.getToday()} | mapStageTasks count: ${Object.keys(mapStageTasks).length}`);
         NS_MODULES.log.debug(`${dryRun ? 'dryRun ' : ''}getInputData`, `today: ${_.getToday()} | mapStageTasks: ${JSON.stringify(mapStageTasks)}`);
 
         return mapStageTasks;
@@ -283,8 +284,8 @@ const _ = {
             });
         });
 
+        // Make all previously active service changes of affected service Ceased (3)
         for (let service of adjustedServices) {
-            // Make all previously active service changes of affected service Ceased (3)
             getServiceChangesByFilters(NS_MODULES, [
                 ['custrecord_servicechg_status', 'is', SERVICE_CHANGE_STATUS.Active], // Active (2)
                 'AND',
@@ -299,7 +300,7 @@ const _ = {
 
         // Create Commencement Register //
         const priceAdjustmentSession = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: sessionId});
-        const convertedEffectiveDate = this.convertDateTimeToDateField(priceAdjustmentSession.getValue({fieldId: 'custrecord_1301_effective_date'}));
+        const convertedEffectiveDate = _.convertDateTimeToDateField(priceAdjustmentSession.getValue({fieldId: 'custrecord_1301_effective_date'}));
         const franchiseeRecord = NS_MODULES.record.load({type: 'partner', id: franchiseeId});
         const commRegRecord = NS_MODULES.record.create({type: 'customrecord_commencement_register'});
         const commRegData = {
@@ -315,6 +316,7 @@ const _ = {
             custrecord_commreg_sales_record: null,
             custrecord_wkly_svcs: '5',
             custrecord_state: franchiseeRecord.getValue({fieldId: 'location'}),
+            custrecord_tnc_agreement_date: new Date(),
         }
 
         for (let fieldId in commRegData)
@@ -573,11 +575,14 @@ const _ = {
     },
     finalisePriceAdjustmentProcess(summaryContext) {
         const processedSessionIds = [], notifiedSessionIds = [];
-        let notifiedCustomerCount = 0;
+        let notifiedCustomerCount = 0, processedCustomerCount = 0;
         summaryContext.output.iterator().each(function(key, value) {
             const { sessionId } = JSON.parse(`${value}`);
 
-            if (sessionId && `${key}`.includes('ProcessedCustomer')) processedSessionIds.push(sessionId)
+            if (sessionId && `${key}`.includes('ProcessedCustomer')) {
+                processedCustomerCount++;
+                processedSessionIds.push(sessionId);
+            }
             if (sessionId && `${key}`.includes('NotifiedCustomer')) {
                 notifiedCustomerCount++;
                 notifiedSessionIds.push(sessionId);
@@ -590,6 +595,8 @@ const _ = {
         const uniqueNotifiedSessionIds = [...(new Set(notifiedSessionIds))];
 
         NS_MODULES.log.debug("finalisePriceAdjustmentProcess", `${notifiedCustomerCount} customers have been notified.`);
+        NS_MODULES.log.debug("finalisePriceAdjustmentProcess", `${processedCustomerCount} customers have been processed.`);
+
         if (dryRun) {
             NS_MODULES.log.debug("dryRun finalisePriceAdjustmentProcess", `uniqueProcessedSessionIds: ${JSON.stringify(uniqueProcessedSessionIds)}`);
             NS_MODULES.log.debug("dryRun finalisePriceAdjustmentProcess", `uniqueNotifiedSessionIds: ${JSON.stringify(uniqueNotifiedSessionIds)}`);
