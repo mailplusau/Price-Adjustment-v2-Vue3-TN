@@ -10,6 +10,12 @@ import { useUserStore } from "@/stores/user";
 import { priceAdjustmentTypes } from "@/utils/defaults.mjs";
 import { utils, writeFile } from "xlsx";
 
+const DATA_MODE = {
+    NEW_DATA_ONLY: 'new_data_only',
+    OLD_DATA_ONLY: 'old_data_only',
+    USE_BOTH: 'use_both'
+}
+
 const state = {
     id: null,
     details: {...priceAdjustment},
@@ -43,7 +49,7 @@ const actions = {
 
             if (!!this.details.custrecord_1302_opt_out_reason && !useUserStore().isAdmin) return;
 
-            await _preparePriceAdjustmentData(this);
+            await _preparePriceAdjustmentData(this, usePricingRules().isSessionFinalised ? DATA_MODE.OLD_DATA_ONLY : DATA_MODE.USE_BOTH);
 
             writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
 
@@ -51,16 +57,16 @@ const actions = {
             priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
 
             await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentRecordId: this.id, priceAdjustmentData});
-        } else if (data.length) {
+        } else if (data.length > 1) {
             console.error("More than 1 record found"); // TODO: Resolve this
-        } else {
+        } else if (Array.isArray(data) && !data.length) {
             for (let fieldId in this.form) this.form[fieldId] = priceAdjustment[fieldId];
 
             this.form.custrecord_1302_master_record = usePricingRules().currentSession.id;
             this.form.custrecord_1302_franchisee = useFranchiseeStore().current.id;
             this.form.custrecord_1302_pricing_rules = [...JSON.parse(usePricingRules().currentSession.details.custrecord_1301_pricing_rules)];
 
-            await _preparePriceAdjustmentData(this);
+            await _preparePriceAdjustmentData(this, usePricingRules().isSessionFinalised ? DATA_MODE.OLD_DATA_ONLY : DATA_MODE.USE_BOTH);
 
             await this.createPriceAdjustmentRecord();
             await this.fetchPriceAdjustmentRecord();
@@ -113,7 +119,7 @@ const actions = {
             useGlobalDialog().displayProgress('', 'Saving Price Increase Record...');
         }
 
-        if (applyPricingRules) await _preparePriceAdjustmentData(this, true)
+        if (applyPricingRules) await _preparePriceAdjustmentData(this, DATA_MODE.NEW_DATA_ONLY)
 
         writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
 
@@ -159,14 +165,6 @@ const actions = {
     resetForm() {
         this.form = JSON.parse(JSON.stringify(this.details));
         this.form.custrecord_1302_pricing_rules = this.form.custrecord_1302_pricing_rules ? JSON.parse(this.form.custrecord_1302_pricing_rules) : [];
-    },
-
-    async sendTestNotificationEmail() {
-        if (!usePricingRules().currentSession.id) return;
-
-        useGlobalDialog().displayProgress('', 'Sending test notification email...');
-        await http.post('sendTestNotificationEmail', {sessionId: usePricingRules().currentSession.id});
-        await useGlobalDialog().close(500, 'Complete!');
     },
 
     async exportDataToSpreadsheet() {
@@ -273,27 +271,34 @@ async function _getServicesOfFranchisee() {
     }).filter(service => !!service);
 }
 
-async function _preparePriceAdjustmentData(ctx, ignoreOldAdjustmentData = false) {
-    const oldAdjustmentData = ignoreOldAdjustmentData ? [] : (readFromDataCells(ctx.details, 'custrecord_1302_data_') || []);
-    const priceAdjustmentData = await _getServicesOfFranchisee();
-    const pricingRules = JSON.parse(JSON.stringify(ctx.form.custrecord_1302_pricing_rules));
+async function _preparePriceAdjustmentData(ctx, dataMode = DATA_MODE.USE_BOTH) {
+    const oldAdjustmentData = readFromDataCells(ctx.details, 'custrecord_1302_data_') || [];
 
-    priceAdjustmentData.forEach(data => {
-        for (let rule of pricingRules) // apply pricing rule
-            if (rule['services'].includes(data['custrecord_service']))
-                data["adjustment"] = _applyPricingRules(rule, data['custrecord_service_price']);
+    if (dataMode === DATA_MODE.USE_BOTH || dataMode === DATA_MODE.NEW_DATA_ONLY) {
+        const priceAdjustmentData = await _getServicesOfFranchisee();
+        const pricingRules = JSON.parse(JSON.stringify(ctx.form.custrecord_1302_pricing_rules));
+        if (DATA_MODE.NEW_DATA_ONLY) oldAdjustmentData.splice(0);
 
-        const oldIndex = oldAdjustmentData.findIndex(item => item['internalid'] === data['internalid']);
+        priceAdjustmentData.forEach(data => {
+            for (let rule of pricingRules) // apply pricing rule
+                if (rule['services'].includes(data['custrecord_service']))
+                    data["adjustment"] = _applyPricingRules(rule, data['custrecord_service_price']);
 
-        if (oldIndex >= 0) { // overwrite with old data if any
-            data["adjustment"] = oldAdjustmentData[oldIndex]["adjustment"];
-            data["confirmed"] = oldAdjustmentData[oldIndex]["confirmed"];
-        }
+            const oldIndex = oldAdjustmentData.findIndex(item => item['internalid'] === data['internalid']);
 
-        _applySpecialRules(data);
-    })
+            if (oldIndex >= 0) { // overwrite with old data if any
+                data["adjustment"] = oldAdjustmentData[oldIndex]["adjustment"];
+                data["confirmed"] = oldAdjustmentData[oldIndex]["confirmed"];
+            }
 
-    ctx.priceAdjustmentData = [...priceAdjustmentData];
+            _applySpecialRules(data);
+        })
+
+        ctx.priceAdjustmentData = [...priceAdjustmentData];
+    }
+
+    if (dataMode === DATA_MODE.OLD_DATA_ONLY)
+        ctx.priceAdjustmentData = [...oldAdjustmentData];
 }
 
 function _applySpecialRules(data) { // apply master rules for National Accounts customers and confirm them too

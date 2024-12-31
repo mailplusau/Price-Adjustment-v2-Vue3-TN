@@ -53,7 +53,8 @@ async function proceed() {
                 <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date" title="Opening Date"
                             @update:model-value="priceAdjustmentRule.handleDatesChanged">
                     <template v-slot:activator="{ activatorProps, displayDate }">
-                        <v-text-field v-bind="activatorProps" :model-value="displayDate" persistent-placeholder
+                        <v-text-field v-bind="priceAdjustmentRule.isSessionFinalised ? null : activatorProps"
+                                      :model-value="displayDate" persistent-placeholder readonly
                                       :rules="[v => validate(v, 'required')]"
                                       label="Opening Date" variant="outlined" density="compact" color="primary" hide-details></v-text-field>
                     </template>
@@ -62,9 +63,10 @@ async function proceed() {
             <v-col cols="4" class="mb-4">
                 <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_deadline" title="Deadline" :min="minDeadline"
                             :disabled="!priceAdjustmentRule.currentSession.form.custrecord_1301_opening_date"
-                            @update:model-value="priceAdjustmentRule.handleDatesChanged">
+                            @update:model-value="priceAdjustmentRule.handleDatesChanged" :readonly="priceAdjustmentRule.isSessionFinalised">
                     <template v-slot:activator="{ activatorProps, displayDate, disabled }">
-                        <v-text-field v-bind="activatorProps" :model-value="displayDate" persistent-placeholder
+                        <v-text-field v-bind="priceAdjustmentRule.isSessionFinalised ? null : activatorProps"
+                                      :model-value="displayDate" persistent-placeholder readonly
                                       :rules="[v => validate(v, 'required')]" :disabled="disabled"
                                       label="Deadline" variant="outlined" density="compact" color="primary" hide-details></v-text-field>
                     </template>
@@ -73,9 +75,10 @@ async function proceed() {
             <v-col cols="4" class="mb-4">
                 <DatePicker v-model="priceAdjustmentRule.currentSession.form.custrecord_1301_effective_date" title="Effective Date" :min="minEffectiveDate"
                             :disabled="!priceAdjustmentRule.currentSession.form.custrecord_1301_deadline"
-                            @update:model-value="priceAdjustmentRule.handleDatesChanged">
+                            @update:model-value="priceAdjustmentRule.handleDatesChanged" :readonly="priceAdjustmentRule.isSessionFinalised">
                     <template v-slot:activator="{ activatorProps, displayDate, disabled }">
-                        <v-text-field v-bind="activatorProps" :model-value="displayDate" persistent-placeholder
+                        <v-text-field v-bind="priceAdjustmentRule.isSessionFinalised ? null : activatorProps"
+                                      :model-value="displayDate" persistent-placeholder readonly
                                       :rules="[v => validate(v, 'required')]" :disabled="disabled"
                                       label="Effective Date" variant="outlined" density="compact" color="primary" hide-details></v-text-field>
                     </template>
@@ -94,7 +97,7 @@ async function proceed() {
                 </v-btn-group>
             </v-col>
 
-            <v-col cols="auto">
+            <v-col cols="auto" v-if="!priceAdjustmentRule.isSessionFinalised">
                 <v-btn-group variant="elevated" color="green" divided density="compact">
                     <v-btn @click="proceed()" v-if="!priceAdjustmentRule.currentSession.id">Create Rules</v-btn>
                     <v-btn v-else size="small" @click="proceed()">Save Rules</v-btn>
