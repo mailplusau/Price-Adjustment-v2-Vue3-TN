@@ -4,7 +4,9 @@ import PricingRuleDialog from "@/views/price-adjustment/rule-dialog/Main.vue";
 import FranchiseeTable from "@/views/franchisee-management/components/FranchiseeTable.vue";
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
+import { usePricingRules } from "@/stores/pricing-rules";
 
+const pricingRules = usePricingRules();
 const franchiseeManager = useFranchiseeManager();
 
 const showSearchBox = ref(false);
@@ -59,11 +61,11 @@ function toggleSearchBox() {
                         <v-card v-else color="transparent" flat>
                             <PricingRuleDialog class="ml-4" :show-franchisee-record="false"/>
 
-                            <v-btn variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
+                            <v-btn v-if="pricingRules.currentSession.id" variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
                                 Refresh
                             </v-btn>
 
-                            <v-menu transition="scale-transition">
+                            <v-menu transition="scale-transition" v-if="pricingRules.currentSession.id">
                                 <template v-slot:activator="{ props, isActive }">
                                     <v-btn variant="elevated" color="green" size="small" class="ml-4" v-bind="props">
                                         Export
@@ -84,7 +86,7 @@ function toggleSearchBox() {
                                 </v-list>
                             </v-menu>
 
-                            <v-btn variant="outlined" color="secondary" size="small" class="ml-4"
+                            <v-btn v-if="pricingRules.currentSession.id" variant="outlined" color="secondary" size="small" class="ml-4"
                                     @click="franchiseeManager.triggerUpdateOnAllFranchiseesWhoHaveData()">
                                 Trigger Update
                             </v-btn>
