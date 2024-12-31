@@ -504,6 +504,7 @@ const _ = {
                 if (!sessions[sessionId]) {
                     const priceAdjustmentSession = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: sessionId});
                     let effectiveDate = priceAdjustmentSession.getText({fieldId: 'custrecord_1301_effective_date'});
+                    sessions[sessionId] = {};
                     sessions[sessionId]['effectiveDate'] = effectiveDate.substring(0, effectiveDate.indexOf(' '));
                     sessions[sessionId]['rows'] = [];
                 }
@@ -645,7 +646,7 @@ const _ = {
         let date = new Date(dateTimeObject.toISOString());
         date.setTime(date.getTime() + 12*60*60*1000); // forward 12 hours (AEST is about +10 or +11 UTC)
 
-        return new Date(date.toISOString().replace('Z', ''));
+        return new Date(date.toISOString().split('T')[0] + 'T00:00:00.000');
     },
     getTodayDate() {
         let today = this.getToday();
