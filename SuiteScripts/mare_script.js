@@ -10,6 +10,7 @@
 
 import { writeXLSX, utils } from 'xlsx';
 import {
+    chunkStringToSize,
     readFromDataCells,
     getPriceAdjustmentOfFranchiseeByFilter,
     getPriceAdjustmentRulesByFilters,
@@ -24,6 +25,7 @@ let NS_MODULES = {};
 
 const moduleNames = ['render', 'file', 'runtime', 'search', 'record', 'url', 'format', 'email', 'task', 'log', 'https'];
 const dryRun = false;
+const backupFolderId = 4369812;
 
 // eslint-disable-next-line no-undef
 define(moduleNames.map(item => 'N/' + item), (...args) => {
@@ -87,6 +89,13 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 
         priceAdjustmentSessionsToProcess.forEach(priceAdjustmentSession => {
             prepareTask(priceAdjustmentSession, 'CheckCustomerToProcess');
+        });
+
+        getPriceAdjustmentRulesByFilters(NS_MODULES, [
+            ['custrecord_1301_completion_date', 'isEmpty'.toLowerCase(), '']
+        ]).forEach(session => {
+            mapStageTasks['BackUpSession_' + session['internalid']] = { sessionId: session['internalid'] };
+            mapStageTasks['CleanUpSession_' + session['internalid']] = { sessionId: session['internalid'] };
         });
 
         NS_MODULES.log.debug(`${dryRun ? 'dryRun ' : ''}getInputData`, `today: ${_.getToday()} | mapStageTasks count: ${Object.keys(mapStageTasks).length}`);
@@ -154,13 +163,17 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
         if (context.key.includes('NotifyCustomer')) { // send email here
             if (_.sendPriceAdjustmentNotificationEmail(value['sessionId'], value['customerId'], value['adjustedServices']))
                 context.write({ key: 'NotifiedCustomer_' + value['customerId'], value });
-        } else if  (context.key.includes('ProcessCustomer')) { // process price adjustment here
+        } else if (context.key.includes('ProcessCustomer')) { // process price adjustment here
             _.processPriceAdjustmentE2E(value['sessionId'], value['customerId'], value['franchiseeId'], value['adjustedServices']);
 
             if (shouldUpdateFinancialItems && value['adjustedServices'].filter(item => item['adjustment'] !== 0 && item['confirmed']).length)
                 _.updateFinancialItemsOfCustomer(value['customerId']);
 
             context.write({ key: 'ProcessedCustomer_' + value['customerId'], value });
+        } else if (context.key.includes('BackUpSession')) {
+            _.backupData(value['sessionId'])
+        } else if (context.key.includes('CleanUpSession')) {
+            _.cleanupBackups(value['sessionId'])
         } else context.write({key: context.key, value: context.value});
     }
 
@@ -416,6 +429,49 @@ const _ = {
         customerRecord.save({ignoreMandatoryFields: true});
     },
 
+    backupData(sessionId) {
+        if (dryRun) return;
+
+        const priceAdjustmentRecords = getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, [
+            ['custrecord_1302_master_record', 'is', sessionId],
+        ]);
+        const chunks = chunkStringToSize(JSON.stringify(priceAdjustmentRecords), 9*1024*1024);
+
+        for (const [index, chunk] of chunks.entries()) {
+            NS_MODULES.file.create({
+                name: `mr${sessionId}_${index + 1}_${chunks.length}_${(new Date()).toISOString()}`,
+                fileType: NS_MODULES.file.Type['PLAINTEXT'],
+                contents: chunk.string,
+                description: '',
+                encoding: NS_MODULES.file.Encoding.UTF8,
+                folder: backupFolderId,
+            }).save();
+        }
+    },
+    cleanupBackups(sessionId) {
+        if (dryRun) return;
+
+        NS_MODULES.search.create({
+            type: 'file',
+            filters: [
+                ['created', 'onOrBefore'.toLowerCase(), 'daysago7'],
+                'AND',
+                ['name', 'contains', `mr${sessionId}`],
+                'AND',
+                ['folder', 'is', backupFolderId]
+            ],
+            columns: ['name', 'url']
+        }).run().each(resultSet => {
+            try {
+                NS_MODULES.file.delete({ id: resultSet["id"] });
+                NS_MODULES.log.debug('cleanupBackups', `Deleted backup file id ${resultSet["id"]}`)
+            } catch (e) {
+                NS_MODULES.log.debug('cleanupBackups', `failed to delete backup file id ${resultSet["id"]}`)
+            }
+
+            return true;
+        });
+    },
     generateMondayReport() {
         if (_.getToday().getDay() !== 1) return;
 
