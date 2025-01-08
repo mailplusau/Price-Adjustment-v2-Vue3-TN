@@ -5,6 +5,7 @@ import { useGlobalDialog } from "@/stores/global-dialog";
 import { isoStringRegex } from "@/utils/utils.mjs";
 import { addDays, subDays, set, formatDistanceToNowStrict } from "date-fns";
 import { useUserStore } from "@/stores/user";
+import { useFranchiseeManager } from "@/stores/franchisee-manager";
 
 let lastTick = 0;
 
@@ -22,6 +23,10 @@ const state = {
     },
 
     pricingRuleDialog: {
+        open: false,
+    },
+
+    browserDialog: {
         open: false,
     },
 
@@ -48,6 +53,7 @@ const actions = {
 
         // get the active record by looking at the missing closing date (i.e. pricing rule that is still active)
         let index = Array.isArray(data) ? data.findIndex(item => !item['custrecord_1301_completion_date']) : -1;
+        this.all = [...(Array.isArray(data) ? data : [])];
 
         if (index < 0) {
             if (!useUserStore().isAdmin) return;
@@ -63,6 +69,12 @@ const actions = {
 
         await _getCurrentSession(this);
         this.resetForm();
+    },
+    async changeCurrentSessionId(id) {
+        this.currentSession.id = id;
+        await _getCurrentSession(this);
+        this.resetForm();
+        await useFranchiseeManager().init();
     },
     async createNewRuleRecord() {
         const priceIncreaseRuleData = JSON.parse(JSON.stringify(this.currentSession.form));

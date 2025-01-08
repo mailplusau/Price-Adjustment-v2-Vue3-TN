@@ -5,8 +5,10 @@ import FranchiseeTable from "@/views/franchisee-management/components/Franchisee
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
 import { usePricingRules } from "@/stores/pricing-rules";
+import { useGlobalDialog } from "@/stores/global-dialog";
 
 const pricingRules = usePricingRules();
+const globalDialog = useGlobalDialog();
 const franchiseeManager = useFranchiseeManager();
 
 const showSearchBox = ref(false);
@@ -20,9 +22,10 @@ const handleCtrlF = (e) => {
     }
 }
 
-onMounted(() => {
-    console.log('zee manager mounted')
-    franchiseeManager.init().then();
+onMounted(async () => {
+    globalDialog.displayProgress('', 'Retrieving all franchisees...');
+    await franchiseeManager.init();
+    await globalDialog.close(500, 'Complete');
 
     document.addEventListener('keydown', handleCtrlF);
 })
@@ -61,7 +64,8 @@ function toggleSearchBox() {
                         <v-card v-else color="transparent" flat>
                             <PricingRuleDialog class="ml-4" :show-franchisee-record="false"/>
 
-                            <v-btn v-if="pricingRules.currentSession.id" variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
+                            <v-btn v-if="pricingRules.currentSession.id"
+                                   variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
                                 Refresh
                             </v-btn>
 
@@ -86,8 +90,9 @@ function toggleSearchBox() {
                                 </v-list>
                             </v-menu>
 
-                            <v-btn v-if="pricingRules.currentSession.id" variant="outlined" color="secondary" size="small" class="ml-4"
-                                    @click="franchiseeManager.triggerUpdateOnAllFranchiseesWhoHaveData()">
+                            <v-btn v-if="pricingRules.currentSession.id && !pricingRules.isSessionFinalised"
+                                   variant="outlined" color="secondary" size="small" class="ml-4"
+                                   @click="franchiseeManager.triggerUpdateOnAllFranchiseesWhoHaveData()">
                                 Trigger Update
                             </v-btn>
                         </v-card>

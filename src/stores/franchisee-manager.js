@@ -21,11 +21,7 @@ const actions = {
     async init() {
         if (!top.location.href.includes('app.netsuite')) return;
 
-        useGlobalDialog().displayProgress('', 'Retrieving all franchisees...');
-
         await fetchData(this);
-
-        await useGlobalDialog().close(500, 'Complete');
     },
     async toggleActiveStatusOfAdjustmentRecord(adjustmentRecord) {
         const stateSwitch = adjustmentRecord['custrecord_1302_opt_out_reason'] ? 1 : 0;
