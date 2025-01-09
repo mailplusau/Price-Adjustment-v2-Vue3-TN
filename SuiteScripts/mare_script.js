@@ -436,10 +436,11 @@ const _ = {
             ['custrecord_1302_master_record', 'is', sessionId],
         ]);
         const chunks = chunkStringToSize(JSON.stringify(priceAdjustmentRecords), 9*1024*1024);
+        const timestamp = (new Date()).toISOString();
 
         for (const [index, chunk] of chunks.entries()) {
             NS_MODULES.file.create({
-                name: `mr${sessionId}_${index + 1}_${chunks.length}_${(new Date()).toISOString()}`,
+                name: `mr${sessionId}_${index + 1}_${chunks.length}_${timestamp}`,
                 fileType: NS_MODULES.file.Type['PLAINTEXT'],
                 contents: chunk.string,
                 description: '',
