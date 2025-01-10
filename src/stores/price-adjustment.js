@@ -200,13 +200,16 @@ async function _getServicesOfFranchisee() {
 
     let invoices = [];
     let services = [];
-    let customerRecords = {}
+    let customerRecords = {};
+    const effectiveDate = new Date(usePricingRules().currentSession.details.custrecord_1301_effective_date);
 
     let lastCustomerId = '';
     let count = -1;
     const periods = [
         ['monthsago3', 'daysago0'],
         ['monthsago6', 'monthsago3'],
+
+        ['monthsago12', 'monthsago9'],
         ['monthsago15', 'monthsago12'],
         ['monthsago18', 'monthsago15'],
         ['monthsago21', 'monthsago18'],
@@ -248,7 +251,7 @@ async function _getServicesOfFranchisee() {
             && !/(Shine Lawyer|Sendle|Dashback)/i.test(invoice['customer.companyname']);
 
         if (!customerRecords[customerId].has12MonthsOldInvoice)
-            customerRecords[customerId].has12MonthsOldInvoice = parse(invoice["trandate"], "d/M/y", new Date()) <= subMonths(new Date(), 12);
+            customerRecords[customerId].has12MonthsOldInvoice = parse(invoice["trandate"], "d/M/y", new Date()) <= subMonths(effectiveDate, 12);
 
         if (!customerRecords[customerId].has6MonthsOldInvoice)
             customerRecords[customerId].has6MonthsOldInvoice = parse(invoice['trandate'], 'd/M/y', new Date()) >= subMonths(new Date(), 6);
