@@ -15,11 +15,8 @@ const pricingRules = usePricingRules();
         </template>
 
         <v-list density="compact" class="pa-0">
-            <v-list-item>
-                <b class="text-grey">Navigation Menu</b>
-            </v-list-item>
-
             <v-divider></v-divider>
+            <v-list-subheader>Navigation Menu</v-list-subheader>
 
             <v-list-item class="" @click="mainStore.mainPage.current = mainStore.mainPage.options.PRICE_ADJ">
                 Price Adjustment
@@ -29,8 +26,19 @@ const pricingRules = usePricingRules();
                 Franchisee Management
             </v-list-item>
 
+            <v-list-item class="" @click="mainStore.mainPage.current = mainStore.mainPage.options.BACKUP_MGMT">
+                Backup Management
+            </v-list-item>
+
             <v-list-item class="" @click="pricingRules.browserDialog.open = true">
                 Session Browser
+            </v-list-item>
+
+            <v-divider></v-divider>
+            <v-list-subheader>Miscellaneous</v-list-subheader>
+
+            <v-list-item class="" @click="mainStore.addShortcut()">
+                Add Shortcut
             </v-list-item>
         </v-list>
     </v-menu>

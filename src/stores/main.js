@@ -18,6 +18,7 @@ const state = {
         options: {
             PRICE_ADJ: 'price_adjustment',
             FRANCHISEE_MGMT: 'franchisee_management',
+            BACKUP_MGMT: 'backup_management',
         }
     },
     dev: {
@@ -62,6 +63,10 @@ const actions = {
 
         useGlobalDialog().close().then();
     },
+    addShortcut() {
+        if (top['addShortcut']) top['addShortcut']();
+        else console.error('addShortcut function not found.')
+    }
 };
 
 async function _readUrlParams(ctx) {

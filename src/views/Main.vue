@@ -2,6 +2,7 @@
 import SessionBrowser from '@/views/session-browser/Main.vue';
 import PriceAdjustmentMainView from "@/views/price-adjustment/Main.vue";
 import FranchiseeManagementMainView from '@/views/franchisee-management/Main.vue';
+import BackUpManagerMainView from '@/views/backup-browser/Main.vue';
 import { useMainStore } from "@/stores/main";
 
 const mainStore = useMainStore();
@@ -14,6 +15,10 @@ const mainStore = useMainStore();
 
     <v-fade-transition>
         <FranchiseeManagementMainView v-if="mainStore.mainPage.current === mainStore.mainPage.options.FRANCHISEE_MGMT" />
+    </v-fade-transition>
+
+    <v-fade-transition>
+        <BackUpManagerMainView v-if="mainStore.mainPage.current === mainStore.mainPage.options.BACKUP_MGMT" />
     </v-fade-transition>
 
     <SessionBrowser />

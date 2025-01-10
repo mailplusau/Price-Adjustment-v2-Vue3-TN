@@ -10,8 +10,9 @@ import { VARS } from "@/utils/utils.mjs";
 import {
     franchisee as franchiseeFields,
     pricingRule as pricingRuleFields,
+    getFranchiseesByFilters, getPriceAdjustmentRulesByFilters, getCustomersByFilters, getFilesByFilters,
+    getInvoicesByFilters, getPriceAdjustmentOfFranchiseeByFilter, getServicesByFilters,
 } from "netsuite-shared-modules";
-import { getFranchiseesByFilters, getPriceAdjustmentRulesByFilters, getCustomersByFilters, getInvoicesByFilters, getPriceAdjustmentOfFranchiseeByFilter, getServicesByFilters } from 'netsuite-shared-modules';
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
 let htmlTemplateFilename;
@@ -367,14 +368,8 @@ const getOperations = {
             ['custrecord_1302_franchisee', 'is', franchiseeId]
         ]))
     },
-    'getCustomersByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
-        _writeResponseJson(response, getCustomersByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
-    },
     'getPriceAdjustmentOfFranchiseeByFilter' : function(response, {filters, additionalColumns, overwriteColumns}) {
         _writeResponseJson(response, getPriceAdjustmentOfFranchiseeByFilter(NS_MODULES, filters, additionalColumns, overwriteColumns));
-    },
-    'getServicesByFilter' : function(response, {filters, additionalColumns, overwriteColumns}) {
-        _writeResponseJson(response, getServicesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },
     'getSelectOptions' : function (response, {id, type, valueColumnName, textColumnName}) {
         let {search} = NS_MODULES;
@@ -414,6 +409,20 @@ const getOperations = {
         });
 
         _writeResponseJson(response, data);
+    },
+
+    'getFileContentById' : function(response, {fileId}) {
+        const fileObj = NS_MODULES.file.load({id: fileId})
+        _writeResponseJson(response, fileObj['getContents']());
+    },
+    'getFilesByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getFilesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
+    'getServicesByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getServicesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
+    'getCustomersByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getCustomersByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },
 }
 

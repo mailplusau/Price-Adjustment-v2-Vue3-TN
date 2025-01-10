@@ -10,11 +10,6 @@ const mainStore = useMainStore();
 onMounted(() => {
     mainStore.init();
 })
-
-function addShortcut() {
-    if (top['addShortcut']) top['addShortcut']();
-    else console.error('addShortcut function not found.')
-}
 </script>
 
 <template>
