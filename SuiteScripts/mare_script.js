@@ -180,8 +180,9 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
     function summarize(context) {
         _.handleErrorIfAny(context);
 
-        _.generateReportOnProcessedCustomer(context);
-        _.generateMondayReport();
+        try { _.generateReportOnProcessedCustomer(context); } catch (e) { NS_MODULES.log.debug('generateReportOnProcessedCustomer_FAILED', e) }
+        try { _.generateMondayReport(); } catch (e) { NS_MODULES.log.debug('generateMondayReport_FAILED', e) }
+
         _.finalisePriceAdjustmentProcess(context);
         NS_MODULES.log.debug('summarize', 'done')
     }
@@ -562,7 +563,7 @@ const _ = {
                     const priceAdjustmentSession = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: sessionId});
                     let effectiveDate = priceAdjustmentSession.getText({fieldId: 'custrecord_1301_effective_date'});
                     sessions[sessionId] = {};
-                    sessions[sessionId]['effectiveDate'] = effectiveDate.substring(0, effectiveDate.indexOf(' '));
+                    sessions[sessionId]['effectiveDate'] = effectiveDate.substring(0, effectiveDate.indexOf(' ')).replaceAll('/', '-');
                     sessions[sessionId]['rows'] = [];
                 }
 
