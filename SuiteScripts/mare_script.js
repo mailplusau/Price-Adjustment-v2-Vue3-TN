@@ -321,7 +321,7 @@ const _ = {
             custrecord_date_entry: convertedEffectiveDate,
             custrecord_comm_date: convertedEffectiveDate,
             custrecord_comm_date_signup: convertedEffectiveDate,
-            custrecord_sale_type: '10', // Price Increase (10)
+            custrecord_sale_type: '25', // Annual Price Increase (25)
             custrecord_in_out: '2', // Inbound
             custrecord_customer: customerId,
             custrecord_salesrep: 109783,// an employee named Franchisees (to represent all franchisees)
