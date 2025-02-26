@@ -182,8 +182,8 @@ define(moduleNames.map(item => 'N/' + item), (...args) => {
 
         try { _.generateReportOnProcessedCustomer(context); } catch (e) { NS_MODULES.log.debug('generateReportOnProcessedCustomer_FAILED', e) }
         try { _.generateMondayReport(); } catch (e) { NS_MODULES.log.debug('generateMondayReport_FAILED', e) }
+        try { _.finalisePriceAdjustmentProcess(context); } catch (e) { NS_MODULES.log.debug('finalisePriceAdjustmentProcess_FAILED', e) }
 
-        _.finalisePriceAdjustmentProcess(context);
         NS_MODULES.log.debug('summarize', 'done')
     }
 
