@@ -6,7 +6,9 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
 import { usePricingRules } from "@/stores/pricing-rules";
 import { useGlobalDialog } from "@/stores/global-dialog";
+import { useUserStore } from "@/stores/user";
 
+const userStore = useUserStore();
 const pricingRules = usePricingRules();
 const globalDialog = useGlobalDialog();
 const franchiseeManager = useFranchiseeManager();
@@ -86,6 +88,24 @@ function toggleSearchBox() {
                                     </v-list-item>
                                     <v-list-item @click="franchiseeManager.exportAllFranchiseeAdjustmentData()">
                                         <v-list-item-title>Confirmed Adjustments</v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+
+                            <v-menu transition="scale-transition" v-if="pricingRules.isSessionFinalised && userStore.isMe">
+                                <template v-slot:activator="{ props, isActive }">
+                                    <v-btn variant="elevated" color="green" size="small" class="ml-4" v-bind="props">
+                                        Audit
+                                        <v-divider vertical class="mx-2"></v-divider>
+                                        <v-icon class="toggleUpDown" :class="{ 'rotate': isActive }">
+                                            mdi-chevron-down
+                                        </v-icon>
+                                    </v-btn>
+                                </template>
+
+                                <v-list density="compact">
+                                    <v-list-item @click="franchiseeManager.auditPriceIncreaseDataAfterEffectiveDate()">
+                                        <v-list-item-title>Check Effective Date Data</v-list-item-title>
                                     </v-list-item>
                                 </v-list>
                             </v-menu>
