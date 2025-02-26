@@ -456,7 +456,7 @@ const _ = {
         NS_MODULES.search.create({
             type: 'file',
             filters: [
-                ['created', 'onOrBefore'.toLowerCase(), 'daysago7'],
+                ['created', 'onOrBefore'.toLowerCase(), 'daysago21'],
                 'AND',
                 ['name', 'contains', `mr${sessionId}`],
                 'AND',
