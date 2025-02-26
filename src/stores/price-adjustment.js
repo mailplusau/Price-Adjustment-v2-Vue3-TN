@@ -280,7 +280,7 @@ async function _preparePriceAdjustmentData(ctx, dataMode = DATA_MODE.USE_BOTH) {
     if (dataMode === DATA_MODE.USE_BOTH || dataMode === DATA_MODE.NEW_DATA_ONLY) {
         const priceAdjustmentData = await _getServicesOfFranchisee();
         const pricingRules = JSON.parse(JSON.stringify(ctx.form.custrecord_1302_pricing_rules));
-        if (DATA_MODE.NEW_DATA_ONLY) oldAdjustmentData.splice(0);
+        if (dataMode === DATA_MODE.NEW_DATA_ONLY) oldAdjustmentData.splice(0);
 
         priceAdjustmentData.forEach(data => {
             for (let rule of pricingRules) // apply pricing rule
