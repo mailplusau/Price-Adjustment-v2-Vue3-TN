@@ -6,6 +6,8 @@ import { isoStringRegex } from "@/utils/utils.mjs";
 import { addDays, subDays, set, formatDistanceToNowStrict } from "date-fns";
 import { useUserStore } from "@/stores/user";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
+import { useFranchiseeStore } from "@/stores/franchisees";
+import { usePriceAdjustment } from "@/stores/price-adjustment";
 
 let lastTick = 0;
 
@@ -72,6 +74,8 @@ const actions = {
     },
     async changeCurrentSessionId(id) {
         this.currentSession.id = id;
+        useFranchiseeStore().resetCurrent();
+        usePriceAdjustment().resetAll();
         await _getCurrentSession(this);
         this.resetForm();
         await useFranchiseeManager().init();

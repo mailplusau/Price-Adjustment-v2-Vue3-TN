@@ -4,8 +4,8 @@ import { useGlobalDialog } from "@/stores/global-dialog";
 
 const pricingRules = usePricingRules();
 const globalDialog = useGlobalDialog();
-
-const customerTableHeaders = [
+const sortBy = [{ key: 'internalid', order: 'asc' }];
+const sessionTableHeaders = [
     { title: 'ID', align: 'start', key: 'internalid' },
     { title: 'Opening', align: 'center', key: 'custrecord_1301_opening_date', sortRaw: (a, b) => compareDatesOfSession(a, b, 'custrecord_1301_opening_date') },
     { title: 'Deadline', align: 'center', key: 'custrecord_1301_deadline', sortRaw: (a, b) => compareDatesOfSession(a, b, 'custrecord_1301_deadline') },
@@ -69,7 +69,8 @@ async function changeSessionId(id) {
             </v-toolbar>
 
             <v-data-table-virtual class="bg-background" sticky fixed-header hover
-                                  :headers="customerTableHeaders"
+                                  :headers="sessionTableHeaders"
+                                  v-model:sort-by="sortBy"
                                   :items="pricingRules.all"
                                   item-value="internalid"
                                   :height="'calc(50vh)'">
