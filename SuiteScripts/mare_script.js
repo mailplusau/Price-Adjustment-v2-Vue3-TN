@@ -557,7 +557,7 @@ const _ = {
 
         summaryContext.output.iterator().each(function(key, value) {
             if (`${key}`.includes('ProcessedCustomer')) {
-                const {sessionId, customerId, franchiseeId, franchiseeName, adjustedServices, entityId, customerName} = JSON.parse(`${value}`);
+                const {sessionId, customerId, franchiseeId, franchiseeName, adjustedServices, customerEntityId, customerName} = JSON.parse(`${value}`);
 
                 if (!sessions[sessionId]) {
                     const priceAdjustmentSession = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: sessionId});
@@ -577,7 +577,7 @@ const _ = {
                     }
 
                     sessions[sessionId]['rows'].push({
-                        entityId,
+                        entityId: customerEntityId,
                         customerName,
                         customerId, franchiseeId,
                         franchiseeName,
