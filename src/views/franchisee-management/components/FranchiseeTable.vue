@@ -2,6 +2,7 @@
 import { AgGridVue } from "ag-grid-vue3";
 import agFranchiseeSessionStatus from '@/views/franchisee-management/components/agFranchiseeSessionStatus.vue';
 import agControlCell from '@/views/franchisee-management/components/agControlCell.vue';
+import agHistoryCell from '@/views/franchisee-management/components/agHistoryCell.vue';
 import agFilterSessionStatus from "@/views/franchisee-management/components/agFilterSessionStatus.vue";
 import { computed, ref, shallowRef, watch } from "vue";
 import { useFranchiseeManager } from "@/stores/franchisee-manager";
@@ -73,9 +74,8 @@ const columnDefs = [
             return params?.data?.adjustmentRecord ? params?.data?.adjustmentRecord['lastModifiedBy_text'.toLowerCase()] : '--';
         }
     },
-    {
-        headerName: '', editable: false, filter: false, width: '110px', resizable: false, cellRenderer: 'agControlCell'
-    },
+    { headerName: '', editable: false, filter: false, width: '110px', resizable: false, cellRenderer: 'agControlCell' },
+    { headerName: '', editable: false, filter: false, width: '110px', resizable: false, cellRenderer: 'agHistoryCell' },
 ];
 
 function handleCellMouseDown(e) {
@@ -86,7 +86,7 @@ watch(() => props.searchText, val => {
     gridApi.value.setGridOption("quickFilterText", val,);
 })
 
-defineExpose({agControlCell, agFranchiseeSessionStatus, agFilterSessionStatus});
+defineExpose({agControlCell, agHistoryCell, agFranchiseeSessionStatus, agFilterSessionStatus});
 </script>
 
 <template>

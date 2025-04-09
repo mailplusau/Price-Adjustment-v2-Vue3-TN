@@ -1,5 +1,6 @@
 <script setup>
 import SessionBrowser from '@/views/session-browser/Main.vue';
+import HistoryDialog from '@/views/price-adjustment/history-dialog/Main.vue';
 import PriceAdjustmentMainView from "@/views/price-adjustment/Main.vue";
 import FranchiseeManagementMainView from '@/views/franchisee-management/Main.vue';
 import BackUpManagerMainView from '@/views/backup-browser/Main.vue';
@@ -22,6 +23,7 @@ const mainStore = useMainStore();
     </v-fade-transition>
 
     <SessionBrowser />
+    <HistoryDialog />
 </template>
 
 <style scoped>

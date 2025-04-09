@@ -10,8 +10,15 @@ import { VARS } from "@/utils/utils.mjs";
 import {
     franchisee as franchiseeFields,
     pricingRule as pricingRuleFields,
-    getFranchiseesByFilters, getPriceAdjustmentRulesByFilters, getCustomersByFilters, getFilesByFilters,
-    getInvoicesByFilters, getPriceAdjustmentOfFranchiseeByFilter, getServicesByFilters,
+    getFranchiseesByFilters,
+    getPriceAdjustmentRulesByFilters,
+    getCustomersByFilters,
+    getFilesByFilters,
+    getInvoicesByFilters,
+    getPriceAdjustmentOfFranchiseeByFilter,
+    getServicesByFilters,
+    getCommRegsByFilters,
+    getJsonDataHistoryByFilters,
 } from "netsuite-shared-modules";
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
@@ -342,9 +349,6 @@ const getOperations = {
             'CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national'
         ], true));
     },
-    'getServicesByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
-        _writeResponseJson(response, getServicesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
-    },
     'getPriceAdjustmentRuleById' : function(response, {priceAdjustmentRuleId}) {
         let priceAdjustmentRule = NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: priceAdjustmentRuleId});
         let data = {};
@@ -424,6 +428,15 @@ const getOperations = {
     'getCustomersByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
         _writeResponseJson(response, getCustomersByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },
+    'getCommRegsByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getCommRegsByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
+    'getInvoicesByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getInvoicesByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
+    'getJsonDataHistoryByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
+        _writeResponseJson(response, getJsonDataHistoryByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
+    },
 }
 
 const postOperations = {
@@ -456,6 +469,19 @@ const postOperations = {
         }
 
         _writeResponseJson(response, {priceAdjustmentRecordId: priceAdjustmentRecord.save({ignoreMandatoryFields: true})});
+    },
+    'createJsonDataHistory' : function(response, {historyData}) {
+        let jsonDataHistoryRecord = NS_MODULES.record.create({type: 'customrecord_json_data_history'});
+
+        for (let fieldId in historyData) {
+            let value = historyData[fieldId];
+            if (isoStringRegex.test(historyData[fieldId]) && ['date', 'datetimetz'].includes(historyData['getField']({fieldId})?.type))
+                value = new Date(historyData[fieldId]);
+
+            jsonDataHistoryRecord.setValue({fieldId, value});
+        }
+
+        _writeResponseJson(response, {jsonDataHistoryRecordId: jsonDataHistoryRecord.save({ignoreMandatoryFields: true})});
     },
     'optOutOfPriceAdjustmentPeriod' : function(response, {priceAdjustmentRecordId, franchiseeId, optOutReason}) {
         const franchiseeRecord = NS_MODULES.record.load({type: 'partner', id: franchiseeId});

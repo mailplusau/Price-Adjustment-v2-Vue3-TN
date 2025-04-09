@@ -9,6 +9,7 @@ import { useGlobalDialog } from "@/stores/global-dialog";
 import { useUserStore } from "@/stores/user";
 import { priceAdjustmentTypes } from "@/utils/defaults.mjs";
 import { utils, writeFile } from "xlsx";
+import { usePriceAdjustmentHistoryStore } from "@/stores/price-adjustment-history";
 
 const DATA_MODE = {
     NEW_DATA_ONLY: 'new_data_only',
@@ -32,7 +33,8 @@ const getters = {
 
 const actions = {
     async init() {
-        if (!useFranchiseeStore().current.id || !usePricingRules().currentSession.id) return;
+        if (!useFranchiseeStore().current.id) return this.priceAdjustmentData.splice(0);
+        if (!usePricingRules().currentSession.id) return;
 
         let data = await http.get('getPriceAdjustmentOfFranchisee', {
             priceAdjustmentRuleId: usePricingRules().currentSession.id, franchiseeId: useFranchiseeStore().current.id});
@@ -51,12 +53,9 @@ const actions = {
 
             await _preparePriceAdjustmentData(this, usePricingRules().isSessionFinalised ? DATA_MODE.OLD_DATA_ONLY : DATA_MODE.USE_BOTH);
 
-            writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
+            await _.saveAdjustmentData(this);
 
-            const priceAdjustmentData =  JSON.parse(JSON.stringify(this.form));
-            priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
-
-            await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentRecordId: this.id, priceAdjustmentData});
+            usePriceAdjustmentHistoryStore().recordAdjustmentDataHistory().then();
         } else if (data.length > 1) {
             console.error("More than 1 record found"); // TODO: Resolve this
         } else if (Array.isArray(data) && !data.length) {
@@ -121,12 +120,10 @@ const actions = {
 
         if (applyPricingRules) await _preparePriceAdjustmentData(this, DATA_MODE.NEW_DATA_ONLY)
 
-        writeToDataCells(this.form, this.priceAdjustmentData, 'custrecord_1302_data_');
+        await _.saveAdjustmentData(this);
 
-        const priceAdjustmentData =  JSON.parse(JSON.stringify(this.form));
-        priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
+        usePriceAdjustmentHistoryStore().recordAdjustmentDataHistory().then();
 
-        await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentRecordId: this.id, priceAdjustmentData});
         this.savingData = false;
     },
 
@@ -193,6 +190,17 @@ const actions = {
 
         await useGlobalDialog().close(2000, 'Complete');
     }
+}
+
+const _ = {
+    async saveAdjustmentData(ctx) {
+        writeToDataCells(ctx.form, ctx.priceAdjustmentData, 'custrecord_1302_data_');
+
+        const priceAdjustmentData =  JSON.parse(JSON.stringify(ctx.form));
+        priceAdjustmentData.custrecord_1302_pricing_rules = JSON.stringify(priceAdjustmentData.custrecord_1302_pricing_rules);
+
+        await http.post('saveOrCreatePriceAdjustmentRecord', {priceAdjustmentRecordId: ctx.id, priceAdjustmentData});
+    },
 }
 
 async function _getServicesOfFranchisee() {
