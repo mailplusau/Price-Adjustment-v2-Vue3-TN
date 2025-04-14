@@ -27,7 +27,7 @@ const actions = {
                 ['internalid', 'is', priceAdjustmentId]
                 ], additionalColumns: ['owner', 'created']}),
             http.get('getJsonDataHistoryByFilters', {filters: [
-                    ['custrecord_1318_related_record', 'equalto', this.selectedPriceAdjustmentId], 'AND',
+                    ['custrecord_1318_related_record', 'is', this.selectedPriceAdjustmentId], 'AND',
                     ['custrecord_related_record_type', 'is', RECORD_TYPE.PRICE_ADJUSTMENT_DATA]
                 ], additionalColumns: ['owner', 'created']})
         ])
@@ -42,14 +42,14 @@ const actions = {
             created_text: adjustmentDataInfo['created_text'],
             isOriginRecord: true
         })
-        console.log(this.historyData)
+
         this.loading = false;
     },
     async recordAdjustmentDataHistory() {
         const oldAdjustmentData = readFromDataCells(usePriceAdjustment().details, 'custrecord_1302_data_');
         const newAdjustmentData = readFromDataCells(usePriceAdjustment().form, 'custrecord_1302_data_');
         const difference = diff(oldAdjustmentData, newAdjustmentData);
-        console.log(difference);
+
         if (Array.isArray(difference) && difference.length) {
             const historyData = {...jsonDataHistory};
             const referenceData = {};
@@ -61,7 +61,7 @@ const actions = {
             historyData.custrecord_related_record_type = RECORD_TYPE.PRICE_ADJUSTMENT_DATA;
 
             writeToDataCells(historyData, { referenceData, difference }, 'custrecord_1318_data_');
-            console.log('historyData', historyData);
+
             await http.post('createJsonDataHistory', {historyData}, {noErrorPopup: true});
         }
     }

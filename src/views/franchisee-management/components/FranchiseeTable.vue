@@ -74,8 +74,8 @@ const columnDefs = [
             return params?.data?.adjustmentRecord ? params?.data?.adjustmentRecord['lastModifiedBy_text'.toLowerCase()] : '--';
         }
     },
-    { headerName: '', editable: false, filter: false, width: '110px', resizable: false, cellRenderer: 'agControlCell' },
-    { headerName: '', editable: false, filter: false, width: '110px', resizable: false, cellRenderer: 'agHistoryCell' },
+    { headerName: '', editable: false, filter: false, width: '110px', resizable: false, sortable: false, cellRenderer: 'agControlCell' },
+    { headerName: '', editable: false, filter: false, width: '110px', resizable: false, sortable: false, cellRenderer: 'agHistoryCell' },
 ];
 
 function handleCellMouseDown(e) {
