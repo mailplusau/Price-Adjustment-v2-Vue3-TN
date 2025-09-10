@@ -48,13 +48,22 @@ const actions = {
     async recordAdjustmentDataHistory() {
         const oldAdjustmentData = readFromDataCells(usePriceAdjustment().details, 'custrecord_1302_data_');
         const newAdjustmentData = readFromDataCells(usePriceAdjustment().form, 'custrecord_1302_data_');
-        const difference = diff(oldAdjustmentData, newAdjustmentData);
+
+        if (!oldAdjustmentData || !newAdjustmentData) return;
+
+        const oldData = {};
+        const newData = {};
+
+        oldAdjustmentData.forEach(item => { oldData[item['internalid']] = { ...item }; })
+        newAdjustmentData.forEach(item => { newData[item['internalid']] = { ...item }; })
+
+        const difference = diff(oldData, newData);
 
         if (Array.isArray(difference) && difference.length) {
             const historyData = {...jsonDataHistory};
             const referenceData = {};
             difference.filter(i => i['type'] === 'CHANGE').forEach(d => {
-                if (!referenceData[d.path[0]]) referenceData[d.path[0]] = oldAdjustmentData[d.path[0]]
+                if (!referenceData[d.path[0]]) referenceData[d.path[0]] = oldData[d.path[0]]
             })
 
             historyData.custrecord_1318_related_record = usePriceAdjustment().id;
