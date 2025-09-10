@@ -12,10 +12,6 @@ import { usePriceAdjustment } from "@/stores/price-adjustment";
 let lastTick = 0;
 
 const state = {
-    colorList: [
-        '#181a1b',
-    ],
-
     all: [],
     currentSession: {
         id: null,
@@ -23,15 +19,12 @@ const state = {
         texts: {...pricingRule},
         form: {...pricingRule},
     },
-
     pricingRuleDialog: {
         open: false,
     },
-
     browserDialog: {
         open: false,
     },
-
     timeLeftUntilDeadline: 'Unknown',
     timeLeftUntilEffectiveDate: 'Unknown'
 };
@@ -57,6 +50,7 @@ const actions = {
         let index = Array.isArray(data) ? data.findIndex(item => !item['custrecord_1301_completion_date']) : -1;
         this.all = [...(Array.isArray(data) ? data : [])];
 
+        // TODO: handle cases where 2 sessions active at the same time
         if (index < 0) {
             if (!useUserStore().isAdmin) return;
 
