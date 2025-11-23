@@ -291,9 +291,7 @@ async function _preparePriceAdjustmentData(ctx, dataMode = DATA_MODE.USE_BOTH) {
         if (dataMode === DATA_MODE.NEW_DATA_ONLY) oldAdjustmentData.splice(0);
 
         priceAdjustmentData.forEach(data => {
-            for (let rule of pricingRules) // apply pricing rule
-                if (rule['services'].includes(data['custrecord_service']))
-                    data["adjustment"] = _applyPricingRules(rule, data['custrecord_service_price']);
+            data["adjustment"] = _applyPricingRules(pricingRules, data["custrecord_service"], data["custrecord_service_price"]);
 
             const oldIndex = oldAdjustmentData.findIndex(item => item['internalid'] === data['internalid']);
 
@@ -317,22 +315,24 @@ function _applySpecialRules(data) { // apply master rules for National Accounts 
         const pricingRules = JSON.parse(usePricingRules().currentSession.details.custrecord_1301_pricing_rules);
 
         data['confirmed'] = true;
-        for (let rule of pricingRules) {
-            if (rule["services"].includes(data["custrecord_service"]))
-                data["adjustment"] = _applyPricingRules(rule, data["custrecord_service_price"]);
-        }
+        data["adjustment"] = _applyPricingRules(pricingRules, data["custrecord_service"], data["custrecord_service_price"]);
     }
 }
 
-function _applyPricingRules(pricingRule, currentPrice) {
+function _applyPricingRules(pricingRules, serviceName, currentPrice) {
     let adjustment = 0;
-    if (pricingRule['conditions'].length) {
-        let [fieldName, operator, operand1, operand2] = pricingRule['conditions'][0];
-        if (!fieldName) console.log('fieldName', fieldName);
-        let operatorIndex = pricingRuleOperatorOptions.findIndex(item => item.value === operator)
-        if (pricingRuleOperatorOptions[operatorIndex]?.['eval'](parseFloat(currentPrice), operand1, operand2))
-            adjustment = _calculateAdjustment(pricingRule, parseFloat(currentPrice));
-    } else adjustment = _calculateAdjustment(pricingRule, parseFloat(currentPrice));
+
+    for (let rule of pricingRules) {
+        if (rule["services"].includes(serviceName)) {
+            if (rule['conditions'].length) {
+                let [fieldName, operator, operand1, operand2] = rule['conditions'][0];
+                if (!fieldName) console.log('fieldName', fieldName);
+                let operatorIndex = pricingRuleOperatorOptions.findIndex(item => item.value === operator)
+                if (pricingRuleOperatorOptions[operatorIndex]?.['eval'](parseFloat(currentPrice), operand1, operand2))
+                    adjustment += _calculateAdjustment(rule, parseFloat(currentPrice));
+            } else adjustment += _calculateAdjustment(rule, parseFloat(currentPrice));
+        }
+    }
 
     return adjustment;
 }
