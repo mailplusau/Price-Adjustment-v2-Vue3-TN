@@ -18,6 +18,8 @@ onMounted(() => {
     for (let entry of difference) {
         const refData = getMatchingReferenceData(referenceData, entry);
 
+        if (entry.type === 'CHANGE' && entry.path[1] === 'highlightClass') continue;
+
         if (!refData['CUSTRECORD_SERVICE_CUSTOMER.internalid']) continue;
 
         if (!sortedData[refData['CUSTRECORD_SERVICE_CUSTOMER.internalid']]) {

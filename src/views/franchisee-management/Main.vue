@@ -44,6 +44,12 @@ function toggleSearchBox() {
         })
     else searchText.value = '';
 }
+
+async function refreshData() {
+    globalDialog.displayProgress('', 'Retrieving all franchisees data...');
+    await franchiseeManager.init();
+    await globalDialog.close(200, 'Complete');
+}
 </script>
 
 <template>
@@ -67,7 +73,7 @@ function toggleSearchBox() {
                             <PricingRuleDialog class="ml-4" :show-franchisee-record="false"/>
 
                             <v-btn v-if="pricingRules.currentSession.id"
-                                   variant="outlined" color="secondary" size="small" class="ml-4" @click="franchiseeManager.init()">
+                                   variant="outlined" color="secondary" size="small" class="ml-4" @click="refreshData()">
                                 Refresh
                             </v-btn>
 
