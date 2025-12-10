@@ -208,6 +208,7 @@ async function _getServicesOfFranchisee() {
 
     let invoices = [];
     let services = [];
+    let cosCommRegs = []; // 'Change of Service' Commencement Registers
     let customerRecords = {};
     const effectiveDate = new Date(usePricingRules().currentSession.details.custrecord_1301_effective_date);
 
@@ -238,6 +239,18 @@ async function _getServicesOfFranchisee() {
                 dateOfLastPriceAdjustment: format(subYears(new Date(usePricingRules().currentSession.details.custrecord_1301_effective_date), 1), 'd/M/y'),
             })
         })(),
+        (async () => {
+            cosCommRegs = await http.get('getCommRegsByFilters', {
+                filters: [
+                    ['custrecord_customer.partner', 'is', useFranchiseeStore().current.id],
+                    'AND',
+                    ['custrecord_comm_date', 'within', 'yearsago1', 'today'],
+                    'AND',
+                    ['custrecord_sale_type', 'is', '24'], // Change of Service (24)
+                ],
+                additionalColumns: ['custrecord_customer'], overwriteColumns: true
+            });
+        })(),
     ])
 
     services.sort((a, b) =>
@@ -253,10 +266,13 @@ async function _getServicesOfFranchisee() {
                 eligibleForPriceIncrease: false,
                 has12MonthsOldInvoice: false,
                 has6MonthsOldInvoice: false,
+                hasChangeOfServiceWithin1Year: false,
             }
 
-        customerRecords[customerId].eligibleForPriceIncrease = !/^(SC |NP |AP )/i.test(invoice['customer.companyname'])
-            && !/(Shine Lawyer|Sendle|Dashback)/i.test(invoice['customer.companyname']);
+        customerRecords[customerId].eligibleForPriceIncrease = !/^(SC |NP |AP |RSEA)/i.test(invoice['customer.companyname'])
+            && !/(Shine Lawyer|Sendle|Dashback|Rodd & Gunn|Rodd and Gunn|Secure Cash|Neopost)/i.test(invoice['customer.companyname']);
+
+        customerRecords[customerId].hasChangeOfServiceWithin1Year = cosCommRegs.findIndex(commReg => commReg['custrecord_customer'] === customerId) >= 0;
 
         if (!customerRecords[customerId].has12MonthsOldInvoice)
             customerRecords[customerId].has12MonthsOldInvoice = parse(invoice["trandate"], "d/M/y", new Date()) <= subMonths(effectiveDate, 12);
@@ -271,7 +287,8 @@ async function _getServicesOfFranchisee() {
     return services.map(service => {
         let customerId = service['CUSTRECORD_SERVICE_CUSTOMER.internalid'];
         if (!customerRecords[customerId]?.has12MonthsOldInvoice || !customerRecords[customerId]?.has6MonthsOldInvoice
-            || !customerRecords[customerId]?.eligibleForPriceIncrease) return null;
+            || !customerRecords[customerId]?.eligibleForPriceIncrease
+            || customerRecords[customerId]?.hasChangeOfServiceWithin1Year) return null;
 
         if (lastCustomerId !== customerId) {
             lastCustomerId = customerId;
