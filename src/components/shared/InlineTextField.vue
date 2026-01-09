@@ -45,7 +45,7 @@ watch(menuOpen, (val) => {
 <template>
     <v-menu :close-on-content-click="false" v-model="menuOpen" location="bottom center">
         <template v-slot:activator="{ props: activatorProps }">
-            <slot name="activator" :activatorProps="props.disabled ? null : activatorProps" :readonly="props.readonly"></slot>
+            <slot name="activator" :activatorProps="(props.disabled || props.readonly) ? null : activatorProps" :readonly="props.readonly"></slot>
         </template>
         <v-card :min-width="props.minWidth" color="background">
             <v-text-field density="compact" hide-details variant="outlined" color="primary" type="number" hide-spin-buttons step="0.01"

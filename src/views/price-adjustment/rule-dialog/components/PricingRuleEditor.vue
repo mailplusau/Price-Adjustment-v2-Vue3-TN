@@ -8,6 +8,7 @@ import { useDataStore } from "@/stores/data";
 import { usePricingRules } from "@/stores/pricing-rules";
 import { usePriceAdjustment } from "@/stores/price-adjustment";
 import { priceAdjustmentTypes } from "@/utils/defaults.mjs";
+import RuleReusageDialog from "@/views/price-adjustment/rule-dialog/components/RuleReusageDialog.vue";
 
 const servicePricingRules = defineModel({
     required: true
@@ -17,7 +18,11 @@ const props = defineProps({
     showRestoreDefault: {
         required: false,
         default: false,
-    }
+    },
+    showRuleReuse: {
+        required: false,
+        default: false,
+    },
 })
 
 const priceAdjustmentRule = usePricingRules();
@@ -236,6 +241,18 @@ watch(editorDialog, val => {
                     </v-row>
                 </v-card>
             </v-dialog>
+
+            <RuleReusageDialog v-if="props.showRuleReuse" v-model="servicePricingRules">
+                <template v-slot:activator="{ dialogActivator }">
+                    <v-tooltip text="Re-use rules from past price increase sessions" location="top">
+                        <template v-slot:activator="{ props: tooltipActivator }">
+                            <v-btn size="small" v-bind="{...dialogActivator, ...tooltipActivator}" variant="outlined" color="primary" class="ml-3">
+                                Re-use Rules
+                            </v-btn>
+                        </template>
+                    </v-tooltip>
+                </template>
+            </RuleReusageDialog>
 
             <template v-slot:append>
                 <ButtonWithConfirmationPopup v-if="props.showRestoreDefault"

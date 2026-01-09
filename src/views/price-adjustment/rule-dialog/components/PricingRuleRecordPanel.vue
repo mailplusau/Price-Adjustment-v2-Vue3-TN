@@ -88,7 +88,7 @@ async function proceed() {
             <v-divider></v-divider>
 
             <v-col cols="12">
-                <PricingRuleEditor v-model="servicePricingRules" />
+                <PricingRuleEditor v-model="servicePricingRules" :show-rule-reuse="true" />
             </v-col>
 
             <v-col cols="auto">

@@ -68,7 +68,7 @@ watch(menuOpen, (val) => {
 <template>
     <v-menu :close-on-content-click="false" v-model="menuOpen" location="bottom center">
         <template v-slot:activator="{ props: activatorProps }">
-            <slot name="activator" :activatorProps="props.disabled ? null : activatorProps" :readonly="props.readonly" :selectedTitle="selectedTitle"></slot>
+            <slot name="activator" :activatorProps="(props.disabled || props.readonly) ? null : activatorProps" :readonly="props.readonly" :selectedTitle="selectedTitle"></slot>
         </template>
         <v-card :min-width="props.minWidth" color="background">
             <v-autocomplete density="compact" hide-details variant="outlined" color="primary" :menu="true"
