@@ -284,6 +284,28 @@ async function _getServicesOfFranchisee() {
             customerRecords[customerId].has12MonthsOldInvoice = true; // nullify the original criteria if a customer relocated or change of entity
     });
 
+    services.forEach(service => { // check through services so we don't miss those with Relocation or Change of Entity
+        let customerId = service['CUSTRECORD_SERVICE_CUSTOMER.internalid'];
+        if (!customerRecords[customerId])
+            customerRecords[customerId] = {
+                eligibleForPriceIncrease: false,
+                has12MonthsOldInvoice: false,
+                has6MonthsOldInvoice: false,
+                hasChangeOfServiceWithin1Year: false,
+            }
+
+        customerRecords[customerId].eligibleForPriceIncrease = !/^(SC |NP |AP |RSEA)/i.test(service['CUSTRECORD_SERVICE_CUSTOMER.companyname'])
+            && !/(Shine Lawyer|Sendle|Dashback|Rodd & Gunn|Rodd and Gunn|Secure Cash|Neopost)/i.test(service['CUSTRECORD_SERVICE_CUSTOMER.companyname']);
+
+        customerRecords[customerId].hasChangeOfServiceWithin1Year = cosCommRegs.findIndex(commReg => commReg['custrecord_customer'] === customerId) >= 0;
+
+        if ([202599, 217602].includes(parseInt(service['CUSTRECORD_SERVICE_CUSTOMER.leadsource']))) { // Relocation (202599), Change of Entity (217602)
+            // nullify the original criteria if a customer relocated or change of entity
+            customerRecords[customerId].has12MonthsOldInvoice = true;
+            customerRecords[customerId].has6MonthsOldInvoice = true;
+        }
+    })
+
     return services.map(service => {
         let customerId = service['CUSTRECORD_SERVICE_CUSTOMER.internalid'];
         if (!customerRecords[customerId]?.has12MonthsOldInvoice || !customerRecords[customerId]?.has6MonthsOldInvoice
