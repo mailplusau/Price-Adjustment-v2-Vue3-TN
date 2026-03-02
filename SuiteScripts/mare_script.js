@@ -475,7 +475,7 @@ const _ = {
         });
     },
     generateMondayReport() {
-        if (_.getToday().getDay() !== 1) return;
+        if (_.getToday().getDay() !== 1) return; // Only run on Monday
 
         let hasData = false;
         const workbook = utils.book_new();
@@ -578,9 +578,8 @@ const _ = {
 
                     sessions[sessionId]['rows'].push({
                         entityId: customerEntityId,
-                        customerName,
-                        customerId, franchiseeId,
-                        franchiseeName,
+                        customerId, customerName,
+                        franchiseeId, franchiseeName,
                         serviceId: service['serviceId'],
                         serviceName: service['serviceName'],
                         servicePrice: parseFloat(service['servicePrice']),
