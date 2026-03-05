@@ -18,7 +18,7 @@ import {
     getPriceAdjustmentOfFranchiseeByFilter,
     getServicesByFilters,
     getCommRegsByFilters,
-    getJsonDataHistoryByFilters,
+    getJsonDataHistoryByFilters, runNSSavedSearch,
 } from "netsuite-shared-modules";
 
 // These variables will be injected during upload. These can be changed under 'netsuite' of package.json
@@ -336,6 +336,8 @@ const getOperations = {
                 "OR",
                 ["custrecord_service_customer.custentity_date_of_last_price_increase", "onorbefore", dateOfLastPriceAdjustment] // lastyeartodate
             ],
+            'AND',
+            ['custrecord_service_ns_item', 'noneof', '8981']
         ], [
             'custrecord_service_ns_item',
             'custrecord_service_franchisee',
@@ -345,6 +347,7 @@ const getOperations = {
             'CUSTRECORD_SERVICE_CUSTOMER.companyname',
             'CUSTRECORD_SERVICE_CUSTOMER.entityid',
             'CUSTRECORD_SERVICE_CUSTOMER.internalid',
+            'CUSTRECORD_SERVICE_CUSTOMER.leadsource',
             'CUSTRECORD_SERVICE_CUSTOMER.custentity_date_of_last_price_increase',
             'CUSTRECORD_SERVICE_CUSTOMER.custentitycustentity_fin_national'
         ], true));
@@ -437,9 +440,55 @@ const getOperations = {
     'getJsonDataHistoryByFilters' : function(response, {filters, additionalColumns, overwriteColumns}) {
         _writeResponseJson(response, getJsonDataHistoryByFilters(NS_MODULES, filters, additionalColumns, overwriteColumns));
     },
+
+    'runNSSavedSearch' : function(response, {id, type = null, additionalFilters = [], additionalColumns = []}) {
+        _writeResponseJson(response, runNSSavedSearch(NS_MODULES, id, type, additionalFilters, additionalColumns));
+    },
 }
 
 const postOperations = {
+    'getLineItemsOfInvoiceIds' : function(response, {invoiceIds}) {
+        if (!invoiceIds.length) return _writeResponseJson(response, []);
+
+        let data = [];
+        let cycle = 0;
+
+        let resultSubset = [];
+        let searchResults = NS_MODULES.search.create({
+            type: 'item',
+            filters: [
+                ["transaction.type","anyof","CustInvc"],
+                "AND",
+                ["transaction.internalid","anyof",invoiceIds],
+                "AND",
+                ["transaction.memorized","is", false],
+                "AND",
+                ["transaction.quantity","greaterthan","0"]
+            ],
+            columns: [
+                'transaction.rate', 'transaction.amount', 'transaction.quantity', 'transaction.internalid'
+            ]
+        })['run']();
+
+        do {
+            resultSubset = searchResults['getRange']({start: cycle * 1000, end: cycle * 1000 + 1000});
+
+            for (let result of resultSubset) {// we can also use getAllValues() on one of these to see all available fields
+                let tmp = {};
+                tmp['internalid'] = result.id;
+                for (let column of result['columns']) {
+                    let columnName = [...(column.join ? [column.join] : []), column.name].join('.');
+                    tmp[columnName] = result['getValue'](column);
+                    tmp[columnName + '_text'] = result['getText'](column);
+                }
+                data.push(tmp);
+            }
+
+            cycle++;
+        } while (resultSubset.length >= 1000)
+
+        _writeResponseJson(response, data);
+    },
     'saveOrCreatePriceAdjustmentRule' : function(response, {priceAdjustmentRuleId, priceIncreaseRuleData}) {
         let priceAdjustmentRule = priceAdjustmentRuleId ?
             NS_MODULES.record.load({type: 'customrecord_price_adjustment_rules', id: priceAdjustmentRuleId}) :
@@ -509,6 +558,7 @@ const postOperations = {
                 import.meta.env.VITE_NS_USER_772595_EMAIL,
                 import.meta.env.VITE_NS_USER_280700_EMAIL,
                 import.meta.env.VITE_NS_USER_187729_EMAIL,
+                import.meta.env.VITE_NS_USER_MINUS5_EMAIL,
             ],
             bcc: [
                 import.meta.env.VITE_NS_USER_1732844_EMAIL,
@@ -517,5 +567,28 @@ const postOperations = {
         })
 
         _writeResponseJson(response, 'Record cancelled');
+    },
+
+    'deleteRecordByTypeAndId' : function(response, {type, id}) {
+        const deletedId = NS_MODULES.record.delete({type, id});
+        _writeResponseJson(response, deletedId);
+    },
+
+    'saveCustomerData' : function(response, {customerId, customerData}) {
+        let customerRecord = NS_MODULES.record.load({type: 'customer', id: customerId});
+
+        for (let fieldId in customerData) {
+            const field = customerRecord['getField']({fieldId});
+
+            if (!field) continue;
+
+            let value = customerData[fieldId];
+            if (isoStringRegex.test(customerData[fieldId]) && ['date', 'datetimetz', 'timeofday'].includes(field?.type))
+                value = new Date(customerData[fieldId]);
+
+            customerRecord.setValue({fieldId, value});
+        }
+
+        _writeResponseJson(response, customerRecord.save({ignoreMandatoryFields: true}));
     },
 };

@@ -189,7 +189,10 @@ const actions = {
         writeFile(workbook, `${this.texts.custrecord_1302_franchisee}.xlsx`, { compression: true });
 
         await useGlobalDialog().close(2000, 'Complete');
-    }
+    },
+    async _getServicesAndCustomersOfFranchisee(franchiseeId) {
+        return await _getServicesOfFranchisee(franchiseeId)
+    },
 }
 
 const _ = {
@@ -203,8 +206,8 @@ const _ = {
     },
 }
 
-async function _getServicesOfFranchisee() {
-    if (!useFranchiseeStore().current.id || !usePricingRules().currentSession.id) return;
+async function _getServicesOfFranchisee(franchiseeId) {
+    if (!franchiseeId || !usePricingRules().currentSession.id) return;
 
     let invoices = [];
     let services = [];
@@ -215,34 +218,33 @@ async function _getServicesOfFranchisee() {
     let lastCustomerId = '';
     let count = -1;
     const periods = [
-        ['monthsago3', 'daysago0'],
-        ['monthsago6', 'monthsago3'],
+        ['monthsago6', 'daysago0'],
 
-        ['monthsago12', 'monthsago9'],
-        ['monthsago15', 'monthsago12'],
-        ['monthsago18', 'monthsago15'],
-        ['monthsago21', 'monthsago18'],
-        ['monthsago24', 'monthsago21'],
-        ['monthsago27', 'monthsago24'],
-        ['monthsago30', 'monthsago27'],
-        ['monthsago33', 'monthsago30'],
-        ['monthsago36', 'monthsago33'],
+        ['monthsago15', 'monthsago9'],
+        ['monthsago21', 'monthsago15'],
+        ['monthsago27', 'monthsago21'],
+        ['monthsago33', 'monthsago27'],
+        ['monthsago39', 'monthsago33'],
+        ['monthsago45', 'monthsago39'],
+        ['monthsago51', 'monthsago45'],
+        ['monthsago57', 'monthsago51'],
+        ['monthsago63', 'monthsago57'],
     ]
 
     await Promise.allSettled([
         ...periods.map( async ([start, end]) => {
-            invoices.push(...(await http.get('getEligibleInvoicesByFranchiseeIdWithinPeriods', {franchiseeId: useFranchiseeStore().current.id, start, end})))
+            invoices.push(...(await http.get('getEligibleInvoicesByFranchiseeIdWithinPeriods', {franchiseeId, start, end})))
         }),
         (async () => {
             services = await http.get('getActiveServicesByFranchiseeId', {
-                franchiseeId: useFranchiseeStore().current.id,
+                franchiseeId,
                 dateOfLastPriceAdjustment: format(subYears(new Date(usePricingRules().currentSession.details.custrecord_1301_effective_date), 1), 'd/M/y'),
             })
         })(),
         (async () => {
             cosCommRegs = await http.get('getCommRegsByFilters', {
                 filters: [
-                    ['custrecord_customer.partner', 'is', useFranchiseeStore().current.id],
+                    ['custrecord_customer.partner', 'is', franchiseeId],
                     'AND',
                     ['custrecord_comm_date', 'within', 'yearsago1', 'today'],
                     'AND',
@@ -263,6 +265,8 @@ async function _getServicesOfFranchisee() {
         let customerId = invoice['customer.internalid'];
         if (!customerRecords[customerId])
             customerRecords[customerId] = {
+                entityId: invoice['customer.entityid'],
+                companyName: invoice['customer.companyname'],
                 eligibleForPriceIncrease: false,
                 has12MonthsOldInvoice: false,
                 has6MonthsOldInvoice: false,
@@ -288,6 +292,8 @@ async function _getServicesOfFranchisee() {
         let customerId = service['CUSTRECORD_SERVICE_CUSTOMER.internalid'];
         if (!customerRecords[customerId])
             customerRecords[customerId] = {
+                entityId: service['CUSTRECORD_SERVICE_CUSTOMER.entityid'],
+                companyName: service['CUSTRECORD_SERVICE_CUSTOMER.companyname'],
                 eligibleForPriceIncrease: false,
                 has12MonthsOldInvoice: false,
                 has6MonthsOldInvoice: false,
@@ -306,7 +312,7 @@ async function _getServicesOfFranchisee() {
         }
     })
 
-    return services.map(service => {
+    const priceAdjustmentData = services.map(service => {
         let customerId = service['CUSTRECORD_SERVICE_CUSTOMER.internalid'];
         if (!customerRecords[customerId]?.has12MonthsOldInvoice || !customerRecords[customerId]?.has6MonthsOldInvoice
             || !customerRecords[customerId]?.eligibleForPriceIncrease
@@ -319,13 +325,15 @@ async function _getServicesOfFranchisee() {
 
         return {...service, adjustment: 0, confirmed: false, highlightClass: `ag-grid-highlight-0${(count % 2)}`}
     }).filter(service => !!service);
+
+    return {priceAdjustmentData, customerRecords};
 }
 
 async function _preparePriceAdjustmentData(ctx, dataMode = DATA_MODE.USE_BOTH) {
     const oldAdjustmentData = readFromDataCells(ctx.details, 'custrecord_1302_data_') || [];
 
     if (dataMode === DATA_MODE.USE_BOTH || dataMode === DATA_MODE.NEW_DATA_ONLY) {
-        const priceAdjustmentData = await _getServicesOfFranchisee();
+        const { priceAdjustmentData } = await _getServicesOfFranchisee(useFranchiseeStore().current.id);
         const pricingRules = JSON.parse(JSON.stringify(ctx.form.custrecord_1302_pricing_rules));
         if (dataMode === DATA_MODE.NEW_DATA_ONLY) oldAdjustmentData.splice(0);
 
