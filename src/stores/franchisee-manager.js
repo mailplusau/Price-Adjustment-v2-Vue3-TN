@@ -124,6 +124,43 @@ const actions = {
 
         await useGlobalDialog().close(2000, 'Complete! Your spreadsheet will be downloaded shortly.')
     },
+    async exportCustomerEligibilityReport() {
+        if (!usePricingRules().currentSession.id) return;
+
+        const res = await useGlobalDialog().displayConfirmation('Exporting Data',
+            'This will export a report listing all eligible customers for the current price increase session. Proceed?');
+
+        if (!res) return;
+
+        useGlobalDialog().displayProgress('', 'Generating Spreadsheet File...');
+
+        const excelRows = [];
+        const headers = ['InternalID', 'EntityID', 'Customer Name', 'Franchisee', 'Eligible Service Counts', 'Valid Name',
+            'Has Invoices Older Than 12 Months', 'Has Invoices Within Last 6 Months', 'No Service Change Within 12 Months'];
+        for (let franchisee of useFranchiseeStore().all) {
+            if (/^Old|Test/i.test(franchisee['companyname'])) continue;
+
+            const {priceAdjustmentData, customerRecords} = await usePriceAdjustment()._getServicesAndCustomersOfFranchisee(franchisee['internalid']);
+
+            for (let customerId in customerRecords) {
+                excelRows.push({
+                    customerId,
+                    entityId: customerRecords[customerId]['entityId'],
+                    companyName: customerRecords[customerId]['companyName'],
+                    franchisee: franchisee['companyname'],
+                    serviceCounts: priceAdjustmentData.filter(item => item['CUSTRECORD_SERVICE_CUSTOMER.internalid'] === customerId).length,
+                    validName: customerRecords[customerId].eligibleForPriceIncrease ? 'Yes' : 'No',
+                    hasInvoicesOlderThan12Months: customerRecords[customerId].has12MonthsOldInvoice ? 'Yes' : 'No',
+                    hasInvoicesWithinLast6Months: customerRecords[customerId].has6MonthsOldInvoice ? 'Yes' : 'No',
+                    noServiceChangeWithin12Months: customerRecords[customerId].hasChangeOfServiceWithin1Year ? 'No' : 'Yes',
+                })
+            }
+        }
+
+        exportWorkBook(headers, excelRows, "eligible_customers_report.xlsx");
+
+        await useGlobalDialog().close(2000, 'Complete! Your spreadsheet will be downloaded shortly.')
+    },
 
     async triggerUpdateOnAllFranchiseesWhoHaveData() {
         if (!usePricingRules().currentSession.id) return;
